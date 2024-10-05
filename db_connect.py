@@ -19,3 +19,5 @@ def get_db():
     if DB is None:
         raise Exception("Database connection is not established.")
     return DB
+
+DB = get_db()
