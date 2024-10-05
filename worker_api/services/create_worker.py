@@ -7,8 +7,8 @@ def createWorker(DB, worker):
             return jsonify({'error': 'Worker already exists with this Reg. No.'}), 400
         
         DB.insert_one({
-            'Name': worker['name'],
-            'Reg_No': worker['reg_no'],
+            'name': worker['name'],
+            'reg_no': worker['reg_no'],
             'password': worker['password'],
             'photo': worker['photo']
         })
