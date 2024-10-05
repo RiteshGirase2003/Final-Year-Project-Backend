@@ -2,6 +2,7 @@ from flask import jsonify, request
 import re
 from worker_api.schema.worker_schema import Worker
 from bson.objectid import ObjectId
+from datetime import datetime
 
 """ Create Worker """
 
@@ -11,13 +12,14 @@ def createWorker(DB, worker):
         existing_worker = DB.find_one({"reg_no": worker["reg_no"]})
         if existing_worker:
             return jsonify({"error": "Worker already exists with this Reg. No."}), 400
-
         DB.insert_one(
             {
                 "name": worker["name"],
                 "reg_no": worker["reg_no"],
                 "password": worker["password"],
                 "photo": worker["photo"],
+                "created_at": datetime.now(),
+                "updated_at": datetime.now(),
             }
         )
 
@@ -74,7 +76,7 @@ def updateWorker(DB, id):
         existing_worker = DB.find_one({"_id": id})
         if not existing_worker:
             return jsonify({"error": "Worker not found"}), 404
-
+        updated_data["updated_at"] = datetime.now()
         DB.find_one_and_update({"_id": id}, {"$set": updated_data})
         return jsonify({"message": "Worker updated successfully"}), 200
 
