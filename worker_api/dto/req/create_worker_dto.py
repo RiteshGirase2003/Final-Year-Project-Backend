@@ -8,5 +8,6 @@ class CreateWorkerDTO(BaseModel):
     reg_no: StrictInt
     password: StrictStr
     photo: StrictStr
-    created_at: Optional[datetime] = None
-    updated_at: Optional[datetime] = None
+    created_at: Optional[datetime] = Field(default_factory=datetime.now)
+    updated_at: Optional[datetime] = Field(default_factory=datetime.now)
+    is_active: Optional[bool] = Field(default=True)
