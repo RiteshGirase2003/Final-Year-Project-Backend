@@ -14,8 +14,6 @@ def createMultimeter(DB, multimeter):
     if existing_multimeter:
         raise (Exception("Multimeter with this serial number already exists!"))
     multimeter = CreateMultimeterDTO(**multimeter)
-    multimeter.created_at = datetime.now()
-    multimeter.updated_at = datetime.now()
     DB.insert_one(multimeter.dict())
     return jsonify({"message": "Multimeter created successfully"}), 201
 
@@ -24,30 +22,27 @@ def createMultimeter(DB, multimeter):
 
 
 def getMultimeters(DB):
-    query = {}
-
+    query = {
+        "is_active": True,
+    }
     serial_no = request.args.get("serial_no")
     model = request.args.get("model")
-
+    sort_order = request.args.get("sort_order", "asc")
     if serial_no:
         query["serial_no"] = {"$regex": serial_no.strip('"'), "$options": "i"}
     if model:
-        query["model"] = {"$regex": model.strip('"'), "$options": "i"}
+        query["model"] = model.strip('"')
 
-    multimeters = DB.find(query)
+    sort_criteria = [("created_at", 1 if sort_order == "asc" else -1)]
+
+    multimeters = DB.find(query).sort(sort_criteria)
     multimeter_list = list(multimeters)
     results = []
     if multimeter_list:
         for multimeter in multimeter_list:
             multimeter_data = MultimeterResDTO(
                 id=str(multimeter["_id"]),
-                serial_no=multimeter["serial_no"],
-                model=multimeter["model"],
-                description=multimeter["description"],
-                photo=multimeter["photo"],
-                screen_photos=multimeter["screen_photos"],
-                created_at=multimeter["created_at"],
-                updated_at=multimeter["updated_at"],
+                **{k: v for k, v in multimeter.items() if k != "_id"}
             )
             results.append(multimeter_data.dict())
     if len(results) == 0:
@@ -61,7 +56,7 @@ def getMultimeters(DB):
 def updateMultimeter(DB, updated_data, id):
 
     id = ObjectId(id)
-    existing_multimeter = DB.find_one({"_id": id})
+    existing_multimeter = DB.find_one({"_id": id, "is_active": True})
     if not existing_multimeter:
         raise (Exception("Multimeter not found!"))
     updated_data = UpdateMultimeterDTO(**updated_data)
@@ -75,8 +70,10 @@ def updateMultimeter(DB, updated_data, id):
 
 def deleteMultimeter(DB, id):
     id = ObjectId(id)
-    existing_multimeter = DB.find_one({"_id": id})
+    existing_multimeter = DB.find_one({"_id": id, "is_active": True})
     if not existing_multimeter:
         raise (Exception("Multimeter not found!"))
-    DB.find_one_and_delete({"_id": id})
+    DB.find_one_and_update(
+        {"_id": id}, {"$set": {"is_active": False, "updated_at": datetime.now()}}
+    )
     return jsonify({"message": "Multimeter deleted successfully"}), 200

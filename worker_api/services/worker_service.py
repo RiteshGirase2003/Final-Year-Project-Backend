@@ -13,8 +13,6 @@ def createWorker(DB, worker: CreateWorkerDTO):
     existing_worker = DB.find_one({"reg_no": worker.reg_no})
     if existing_worker:
         raise (Exception("Worker with this registration number already exists!"))
-    worker.created_at = datetime.now()
-    worker.updated_at = datetime.now()
     DB.insert_one(worker.dict())
     return jsonify({"message": "Worker created successfully"}), 201
 
@@ -26,26 +24,31 @@ def getWorkers(DB):
 
     reg_no = request.args.get("reg_no")
     name = request.args.get("name")
+    sort_by = request.args.get("sort_by")
+    sort_order = request.args.get("sort_order", "asc")
 
-    query = {}
+    match_stage = {"is_active": True}
     if reg_no:
-        query["reg_no"] = int(reg_no)
+        match_stage["reg_no"] = int(reg_no)
     if name:
         name = name.strip('"')
-        query["name"] = {"$regex": name, "$options": "i"}
-    workers = DB.find(query)
-    workers_list = list(workers)
+        match_stage["name"] = {"$regex": name, "$options": "i"}
+
+    sort_stage = {}
+    if sort_by in ["name", "reg_no"]:
+        sort_stage[sort_by] = 1 if sort_order == "asc" else -1
+
+    pipeline = [{"$match": match_stage}]
+    if sort_stage:
+        pipeline.append({"$sort": sort_stage})
+
+    workers = list(DB.aggregate(pipeline))
     results = []
-    if workers_list:
-        for worker in workers_list:
+
+    if workers:
+        for worker in workers:
             worker_data = WorkerResDTO(
-                id=str(worker["_id"]),
-                name=worker["name"],
-                reg_no=worker["reg_no"],
-                password=worker["password"],
-                photo=worker["photo"],
-                created_at=worker["created_at"],
-                updated_at=worker["updated_at"],
+                id=str(worker["_id"]), **{k: v for k, v in worker.items() if k != "_id"}
             )
             results.append(worker_data.dict())
     if len(results) == 0:
@@ -62,13 +65,12 @@ def updateWorker(DB, id):
     if not updated_data:
         raise (Exception("No data found to update"))
     id = ObjectId(id)
-    existing_worker = DB.find_one({"_id": id})
+    existing_worker = DB.find_one({"_id": id, "is_active": True})
     if not existing_worker:
         raise (Exception("Worker not found!"))
     updated_worker_data = UpdateWorkerDTO(**updated_data)
-    updated_data_dict = updated_worker_data.dict(exclude_unset=True)
-    updated_data_dict["updated_at"] = datetime.now()
-    DB.find_one_and_update({"_id": id}, {"$set": updated_data})
+    updated_data_dict = updated_worker_data.dict()
+    DB.find_one_and_update({"_id": id}, {"$set": updated_data_dict})
     return jsonify({"message": "Worker updated successfully"}), 200
 
 
@@ -77,8 +79,10 @@ def updateWorker(DB, id):
 
 def deleteWorker(DB, id):
     id = ObjectId(id)
-    existing_worker = DB.find_one({"_id": id})
+    existing_worker = DB.find_one({"_id": id, "is_active": True})
     if not existing_worker:
         raise (Exception("Worker not found!"))
-    DB.find_one_and_delete({"_id": id})
+    DB.find_one_and_update(
+        {"_id": id}, {"$set": {"is_active": False, "updated_at": datetime.now()}}
+    )
     return jsonify({"message": "Worker deleted successfully"}), 200
