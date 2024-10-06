@@ -12,9 +12,15 @@ yarn-debug.log*
 yarn-error.log*
 
 # OS generated files
-.DS_Store
 Thumbs.db
 
-# IDE specific files
-.vscode/
+# Ignore other common files and directories
+.DS_Store
 .idea/
+.vscode/
+
+__pycache__/
+
+# Ignore Python bytecode files
+*.pyc
+*.pyo
