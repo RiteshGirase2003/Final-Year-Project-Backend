@@ -1,12 +1,9 @@
 from flask import jsonify, request
-import re
-from worker_api.schema.worker_schema import Worker
 from bson.objectid import ObjectId
 from datetime import datetime
 from worker_api.dto.req.create_worker_dto import CreateWorkerDTO
 from worker_api.dto.res.worker_res_dto import WorkerResDTO
 from worker_api.dto.req.update_worker_dto import UpdateWorkerDTO
-from pydantic import ValidationError
 
 """ Create Worker """
 
