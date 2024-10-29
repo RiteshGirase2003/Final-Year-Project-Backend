@@ -7,6 +7,7 @@ from worker_api.services.worker_service import (
     deleteWorker,
     loginUser,
     refreshAccessToken,
+    logoutUser,
 )
 from middleware.auth import jwt_required
 from worker_api.dto.req.create_worker_dto import UserRole
@@ -50,3 +51,8 @@ def update_worker(id):
 @jwt_required
 def delete_worker(id):
     return deleteWorker(db["Worker"], id)
+
+@worker_bp.route("/logout", methods=["GET"])
+@jwt_required
+def logout():
+    return logoutUser(db["Worker"])

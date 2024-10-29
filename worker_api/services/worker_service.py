@@ -25,10 +25,10 @@ def loginUser(DB, data, user_role):
     ):
         raise Exception("Password is incorrect!")
     access_token = create_access_token(
-        identity={"reg_no": user["reg_no"], "role": user_role}
+        identity={"reg_no": user["reg_no"], "role": str(user_role)}
     )
     refresh_token = create_refresh_token(
-        identity={"reg_no": user["reg_no"], "role": user_role}
+        identity={"reg_no": user["reg_no"], "role": str(user_role)}
     )
     DB.update_one(
         {"reg_no": user["reg_no"]},
@@ -162,12 +162,15 @@ def refreshAccessToken(DB):
         raise Exception("Refresh token has expired!")
     except jwt.InvalidTokenError:
         raise Exception("Invalid refresh token!")
-    print("Decoded Token", decoded_token)
+
     reg_no = decoded_token["sub"]["reg_no"]
+    user_role = decoded_token["sub"]["role"]
     if not reg_no:
         raise Exception("Invalid refresh token payload!")
 
-    worker = DB.find_one({"reg_no": reg_no, "is_active": True})
+    worker = DB.find_one(
+        {"reg_no": reg_no, "is_active": True, "user_role": str(user_role)}
+    )
     if not worker:
         raise Exception("Worker not found!")
 
@@ -175,13 +178,13 @@ def refreshAccessToken(DB):
         raise Exception("Refresh token has expired!")
 
     access_token = create_access_token(
-        identity={"reg_no": worker["reg_no"], "role": "worker"}
+        identity={"reg_no": worker["reg_no"], "role": str(user_role)}
     )
     DB.update_one(
         {"reg_no": worker["reg_no"]},
         {
             "$set": {
-                "refresh_token.token": access_token,
+                "refresh_token.token": refresh_token,
                 "refresh_token.expires_at": datetime.now()
                 + timedelta(minutes=refresh_token_expires),
             }
@@ -189,4 +192,40 @@ def refreshAccessToken(DB):
     )
     response = make_response(jsonify({"message": "Access token refreshed"}), 200)
     response.set_cookie("access_token", access_token, httponly=True)
+    return response
+
+
+""" Logout Worker and Logout Admin """
+
+
+def logoutUser(DB):
+    access_token = request.cookies.get("access_token")
+    try:
+        decoded_token = jwt.decode(
+            access_token, os.getenv("JWT_SECRET_KEY"), algorithms=["HS256"]
+        )
+    except jwt.ExpiredSignatureError:
+        raise Exception("Refresh token has expired!")
+    except jwt.InvalidTokenError:
+        raise Exception("Invalid refresh token!")
+    
+    reg_no = decoded_token["sub"]["reg_no"]
+    worker = DB.find_one(
+        {
+            "reg_no": reg_no,
+            "is_active": True,
+            "user_role": decoded_token["sub"]["role"],
+        }
+    )
+    if not worker:
+        raise Exception("Worker not found!")
+    DB.update_one(
+        {"reg_no": worker["reg_no"]},
+        {"$set": {"refresh_token.token": None, "refresh_token.expires_at": None}},
+    )
+    response = make_response(
+        jsonify({"message": f"{worker["user_role"]} logged out"}), 200
+    )
+    response.delete_cookie("access_token")
+    response.delete_cookie("refresh_token")
     return response
