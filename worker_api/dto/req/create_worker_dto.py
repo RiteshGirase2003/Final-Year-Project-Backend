@@ -11,7 +11,7 @@ class UserRole(str, Enum):
 
 class RefreshToken(BaseModel):
     token: Optional[StrictStr] = Field(default="")
-    expires_at: Optional[datetime] = Field(default_factory=datetime.utcnow)
+    expires_at: Optional[datetime] = Field(default_factory=None)
 
 
 class CreateWorkerDTO(BaseModel):

@@ -5,10 +5,11 @@ from worker_api.services.worker_service import (
     createWorker,
     updateWorker,
     deleteWorker,
-    loginAdmin,
+    loginUser,
     refreshAccessToken,
 )
 from middleware.auth import jwt_required
+from worker_api.dto.req.create_worker_dto import UserRole
 
 worker_bp = Blueprint("worker_bp", __name__)
 
@@ -16,7 +17,10 @@ worker_bp = Blueprint("worker_bp", __name__)
 @worker_bp.route("/login", methods=["POST"])
 def login():
     data = request.json
-    return loginAdmin(db["Worker"], data)
+    user_role = request.args.get("user_role")
+    if user_role not in UserRole:
+        raise Exception("Invalid user role!")
+    return loginUser(db["Worker"], data, user_role)
 
 
 @worker_bp.route("/refresh", methods=["POST"])
@@ -31,7 +35,6 @@ def get_workers():
 
 
 @worker_bp.route("/worker", methods=["POST"])
-
 def add_worker():
     new_worker = request.json
     return createWorker(db["Worker"], new_worker)
