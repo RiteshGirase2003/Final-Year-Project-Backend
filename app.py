@@ -1,6 +1,7 @@
 from flask import Flask
 from worker_api.Routes.worker_routes import worker_bp
 from multimeter_api.Routes.multimeter_routes import multimeter_bp
+from routine_api.Routes.routine_routes import routine_bp
 from db_connect import DB
 from exception_handler import handle_validation_error, handle_generic_error
 from pydantic import ValidationError
@@ -26,6 +27,7 @@ app.register_error_handler(Exception, handle_generic_error)
 
 app.register_blueprint(worker_bp)
 app.register_blueprint(multimeter_bp)
+app.register_blueprint(routine_bp)
 
 
 @app.route("/")
