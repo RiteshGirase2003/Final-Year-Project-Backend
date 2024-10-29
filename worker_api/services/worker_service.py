@@ -11,27 +11,27 @@ import os
 
 refresh_token_expires = int(os.getenv("REFRESH_TOKEN_EXPIRES_IN"))
 
-""" Login Admin """
+""" Login Admin and Login Worker"""
 
 
-def loginAdmin(DB, data):
-    admin = DB.find_one(
-        {"reg_no": data["reg_no"], "is_active": True, "user_role": "admin"}
+def loginUser(DB, data, user_role):
+    user = DB.find_one(
+        {"reg_no": data["reg_no"], "is_active": True, "user_role": str(user_role)}
     )
-    if not admin:
+    if not user:
         raise Exception("Registration number does not exist!")
     if not bcrypt.checkpw(
-        data["password"].encode("utf-8"), admin["password"].encode("utf-8")
+        data["password"].encode("utf-8"), user["password"].encode("utf-8")
     ):
         raise Exception("Password is incorrect!")
     access_token = create_access_token(
-        identity={"reg_no": admin["reg_no"], "role": "admin"}
+        identity={"reg_no": user["reg_no"], "role": user_role}
     )
     refresh_token = create_refresh_token(
-        identity={"reg_no": admin["reg_no"], "role": "admin"}
+        identity={"reg_no": user["reg_no"], "role": user_role}
     )
     DB.update_one(
-        {"reg_no": admin["reg_no"]},
+        {"reg_no": user["reg_no"]},
         {
             "$set": {
                 "refresh_token.token": refresh_token,
@@ -40,7 +40,9 @@ def loginAdmin(DB, data):
             }
         },
     )
-    response = make_response(jsonify({"message": "Admin logged in successfully"}), 200)
+    response = make_response(
+        jsonify({"message": f"{user_role} logged in successfully"}), 200
+    )
     response.set_cookie("access_token", access_token, httponly=True)
     response.set_cookie("refresh_token", refresh_token, httponly=True)
     return response
