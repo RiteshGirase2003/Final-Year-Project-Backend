@@ -9,6 +9,8 @@ from flask_jwt_extended import create_access_token, create_refresh_token
 import jwt
 import os
 
+refresh_token_expires = int(os.getenv("REFRESH_TOKEN_EXPIRES_IN"))
+
 """ Login Admin """
 
 
@@ -27,6 +29,16 @@ def loginAdmin(DB, data):
     )
     refresh_token = create_refresh_token(
         identity={"reg_no": admin["reg_no"], "role": "admin"}
+    )
+    DB.update_one(
+        {"reg_no": admin["reg_no"]},
+        {
+            "$set": {
+                "refresh_token.token": refresh_token,
+                "refresh_token.expires_at": datetime.now()
+                + timedelta(minutes=refresh_token_expires),
+            }
+        },
     )
     response = make_response(jsonify({"message": "Admin logged in successfully"}), 200)
     response.set_cookie("access_token", access_token, httponly=True)
@@ -52,7 +64,7 @@ def createWorker(DB, worker: CreateWorkerDTO):
     )
     worker.refresh_token = {
         "token": refresh_token,
-        "expires_at": datetime.now() + timedelta(days=30),
+        "expires_at": datetime.now() + timedelta(minutes=refresh_token_expires),
     }
     DB.insert_one(worker.dict())
     response = make_response(jsonify({"message": "Worker created successfully"}), 201)
@@ -168,7 +180,8 @@ def refreshAccessToken(DB):
         {
             "$set": {
                 "refresh_token.token": access_token,
-                "refresh_token.expires_at": datetime.now() + timedelta(days=30),
+                "refresh_token.expires_at": datetime.now()
+                + timedelta(minutes=refresh_token_expires),
             }
         },
     )
