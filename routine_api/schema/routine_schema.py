@@ -10,7 +10,7 @@ class Routine(BaseModel):
     worker_id: str
     date: datetime
     start_time: datetime
-    end_time: datetime
+    end_time: Optional[datetime] = None
 
     class Config:
         allow_population_by_field_name = True

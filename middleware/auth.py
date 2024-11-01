@@ -11,6 +11,8 @@ def jwt_required(fn):
     def wrapper(*args, **kwargs):
         try:
             verify_jwt_in_request()
+            worker_id = get_jwt_identity()["worker_id"]
+            threading.Thread(target=updateRoutine, args=(DB, worker_id)).start()
         except Exception as e:
             print(e)
             return jsonify({"msg": "Missing or invalid token"}), 401
