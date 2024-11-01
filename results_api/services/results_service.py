@@ -46,3 +46,12 @@ def get_inspections(DB):
         inspection["worker_id"] = str(inspection["worker_id"])
         formatted.append(inspection)
     return jsonify({"inspections": list(formatted)}), 200
+
+
+def delete_inspection(DB, inspection_id):
+    inspection = DB["Result"].find_one({"_id": ObjectId(inspection_id)})
+    if not inspection:
+        raise Exception("Inspection Not Found!")
+
+    DB["Result"].delete_one({"_id": ObjectId(inspection_id)})
+    return jsonify({"message": "Inspection deleted successfully!"}), 200
