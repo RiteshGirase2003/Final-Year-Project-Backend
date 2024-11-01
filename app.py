@@ -2,6 +2,7 @@ from flask import Flask
 from worker_api.Routes.worker_routes import worker_bp
 from multimeter_api.Routes.multimeter_routes import multimeter_bp
 from routine_api.Routes.routine_routes import routine_bp
+from results_api.Routes.results_route import results_bp
 from db_connect import DB
 from exception_handler import handle_validation_error, handle_generic_error
 from pydantic import ValidationError
@@ -19,7 +20,7 @@ app.config["JWT_ACCESS_TOKEN_EXPIRES"] = timedelta(minutes=access_token_expires)
 app.config["JWT_TOKEN_LOCATION"] = ["cookies"]
 app.config["JWT_ACCESS_COOKIE_NAME"] = "access_token"
 app.config["JWT_REFRESH_COOKIE_NAME"] = "refresh_token"
-
+app.config["JWT_COOKIE_CSRF_PROTECT"] = False
 jwt = JWTManager(app)
 
 app.register_error_handler(ValidationError, handle_validation_error)
@@ -28,6 +29,7 @@ app.register_error_handler(Exception, handle_generic_error)
 app.register_blueprint(worker_bp)
 app.register_blueprint(multimeter_bp)
 app.register_blueprint(routine_bp)
+app.register_blueprint(results_bp)
 
 
 @app.route("/")
