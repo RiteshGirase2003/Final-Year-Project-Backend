@@ -14,24 +14,31 @@ refresh_token_expires = int(os.getenv("REFRESH_TOKEN_EXPIRES_IN"))
 """ Login Admin and Login Worker"""
 
 
-def loginUser(DB, data, user_role):
-    user = DB.find_one(
-        {"reg_no": data["reg_no"], "is_active": True, "user_role": str(user_role)}
-    )
+def loginUser(DB, data):
+    user = DB.find_one({"reg_no": data["reg_no"], "is_active": True})
     if not user:
         raise Exception("Registration number does not exist!")
     if not bcrypt.checkpw(
         data["password"].encode("utf-8"), user["password"].encode("utf-8")
     ):
         raise Exception("Password is incorrect!")
+    user_id = str(user["_id"])
     access_token = create_access_token(
-        identity={"reg_no": user["reg_no"], "role": str(user_role)}
+        identity={
+            "worker_id": user_id,
+            "reg_no": user["reg_no"],
+            "role": user["user_role"],
+        }
     )
     refresh_token = create_refresh_token(
-        identity={"reg_no": user["reg_no"], "role": str(user_role)}
+        identity={
+            "worker_id": user_id,
+            "reg_no": user["reg_no"],
+            "role": user["user_role"],
+        }
     )
     DB.update_one(
-        {"reg_no": user["reg_no"]},
+        {"_id": user["_id"]},
         {
             "$set": {
                 "refresh_token.token": refresh_token,
@@ -41,7 +48,7 @@ def loginUser(DB, data, user_role):
         },
     )
     response = make_response(
-        jsonify({"message": f"{user_role} logged in successfully"}), 200
+        jsonify({"message": f"{user["user_role"]} logged in successfully"}), 200
     )
     response.set_cookie("access_token", access_token, httponly=True)
     response.set_cookie("refresh_token", refresh_token, httponly=True)
@@ -53,22 +60,40 @@ def loginUser(DB, data, user_role):
 
 def createWorker(DB, worker: CreateWorkerDTO):
     worker = CreateWorkerDTO(**worker)
-    existing_worker = DB.find_one({"reg_no": worker.reg_no})
+    existing_worker = DB.find_one({"reg_no": worker.reg_no, "is_active": True})
     if existing_worker:
-        raise (Exception("Worker with this registration number already exists!"))
+        raise Exception("Worker with this registration number already exists!")
     hashed_password = bcrypt.hashpw(worker.password.encode("utf-8"), bcrypt.gensalt())
     worker.password = hashed_password.decode("utf-8")
+    result = DB.insert_one(worker.dict())
+    user = DB.find_one({"_id": result.inserted_id})
+    user_id = str(user["_id"])
     access_token = create_access_token(
-        identity={"reg_no": worker.reg_no, "role": "worker"}
+        identity={
+            "worker_id": user_id,
+            "reg_no": user["reg_no"],
+            "role": user["user_role"],
+        }
     )
     refresh_token = create_refresh_token(
-        identity={"reg_no": worker.reg_no, "role": "worker"}
+        identity={
+            "worker_id": user_id,
+            "reg_no": user["reg_no"],
+            "role": user["user_role"],
+        }
     )
-    worker.refresh_token = {
-        "token": refresh_token,
-        "expires_at": datetime.now() + timedelta(minutes=refresh_token_expires),
-    }
-    DB.insert_one(worker.dict())
+    DB.update_one(
+        {"_id": result.inserted_id},
+        {
+            "$set": {
+                "refresh_token": {
+                    "token": refresh_token,
+                    "expires_at": datetime.now()
+                    + timedelta(minutes=refresh_token_expires),
+                }
+            }
+        },
+    )
     response = make_response(jsonify({"message": "Worker created successfully"}), 201)
     response.set_cookie("access_token", access_token, httponly=True)
     response.set_cookie("refresh_token", refresh_token, httponly=True)
@@ -163,25 +188,36 @@ def refreshAccessToken(DB):
     except jwt.InvalidTokenError:
         raise Exception("Invalid refresh token!")
 
-    reg_no = decoded_token["sub"]["reg_no"]
-    user_role = decoded_token["sub"]["role"]
-    if not reg_no:
+    if (
+        "sub" not in decoded_token
+        or "worker_id" not in decoded_token["sub"]
+        or "role" not in decoded_token["sub"]
+    ):
         raise Exception("Invalid refresh token payload!")
 
+    worker_id = ObjectId(decoded_token["sub"]["worker_id"])
+    user_role = decoded_token["sub"]["role"]
     worker = DB.find_one(
-        {"reg_no": reg_no, "is_active": True, "user_role": str(user_role)}
+        {"_id": worker_id, "is_active": True, "user_role": str(user_role)}
     )
     if not worker:
         raise Exception("Worker not found!")
+
+    if "refresh_token" not in worker or "expires_at" not in worker["refresh_token"]:
+        raise Exception("Invalid worker data: missing refresh token expiration")
 
     if datetime.now() > worker["refresh_token"]["expires_at"]:
         raise Exception("Refresh token has expired!")
 
     access_token = create_access_token(
-        identity={"reg_no": worker["reg_no"], "role": str(user_role)}
+        identity={
+            "worker_id": str(worker_id),
+            "reg_no": worker["reg_no"],
+            "role": str(user_role),
+        }
     )
     DB.update_one(
-        {"reg_no": worker["reg_no"]},
+        {"_id": worker_id},
         {
             "$set": {
                 "refresh_token.token": refresh_token,
@@ -205,22 +241,30 @@ def logoutUser(DB):
             access_token, os.getenv("JWT_SECRET_KEY"), algorithms=["HS256"]
         )
     except jwt.ExpiredSignatureError:
-        raise Exception("Refresh token has expired!")
+        raise Exception("Access token has expired!")
     except jwt.InvalidTokenError:
-        raise Exception("Invalid refresh token!")
-    
-    reg_no = decoded_token["sub"]["reg_no"]
+        raise Exception("Invalid access token!")
+
+    if (
+        "sub" not in decoded_token
+        or "worker_id" not in decoded_token["sub"]
+        or "role" not in decoded_token["sub"]
+    ):
+        raise Exception("Invalid refresh token payload!")
+
+    worker_id = ObjectId(decoded_token["sub"]["worker_id"])
+    worker_role = decoded_token["sub"]["role"]
     worker = DB.find_one(
         {
-            "reg_no": reg_no,
+            "_id": worker_id,
             "is_active": True,
-            "user_role": decoded_token["sub"]["role"],
+            "user_role": worker_role,
         }
     )
     if not worker:
         raise Exception("Worker not found!")
     DB.update_one(
-        {"reg_no": worker["reg_no"]},
+        {"_id": worker_id},
         {"$set": {"refresh_token.token": None, "refresh_token.expires_at": None}},
     )
     response = make_response(

@@ -1,11 +1,12 @@
 from flask import Blueprint, request
 from db_connect import DB as db
 from middleware.auth import jwt_required
-from routine_api.services.routine_service import sendMessage
+from routine_api.services.routine_service import getRoutines
 
 routine_bp = Blueprint("routine_bp", __name__)
 
 
-@routine_bp.route("/hello", methods=["GET"])
-def hello_world():
-    return sendMessage()
+@routine_bp.route("/getRoutines", methods=["POST"])
+@jwt_required
+def get_routines():
+    return getRoutines(db, request.json)
