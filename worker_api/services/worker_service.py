@@ -8,6 +8,7 @@ import bcrypt
 from flask_jwt_extended import create_access_token, create_refresh_token
 import jwt
 import os
+from results_api.dto.request.results_request_dto import ResultsRequestDTO
 
 refresh_token_expires = int(os.getenv("REFRESH_TOKEN_EXPIRES_IN"))
 
