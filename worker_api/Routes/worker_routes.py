@@ -18,10 +18,7 @@ worker_bp = Blueprint("worker_bp", __name__)
 @worker_bp.route("/login", methods=["POST"])
 def login():
     data = request.json
-    user_role = request.args.get("user_role")
-    if user_role not in UserRole:
-        raise Exception("Invalid user role!")
-    return loginUser(db["Worker"], data, user_role)
+    return loginUser(db["Worker"], data)
 
 
 @worker_bp.route("/refresh", methods=["POST"])
@@ -51,6 +48,7 @@ def update_worker(id):
 @jwt_required
 def delete_worker(id):
     return deleteWorker(db["Worker"], id)
+
 
 @worker_bp.route("/logout", methods=["GET"])
 @jwt_required
