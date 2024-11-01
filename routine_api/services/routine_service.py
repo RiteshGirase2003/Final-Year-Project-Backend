@@ -1,11 +1,10 @@
 from bson import ObjectId
-from flask import jsonify
+from flask import jsonify, request
 from datetime import datetime, date, time
 from routine_api.schema.routine_schema import Routine
 
 
 def updateRoutine(DB, worker_id):
-    print("*********Update Routine*********")
     current_datetime = datetime.now()
     current_date = current_datetime.date()
 
@@ -34,40 +33,43 @@ def updateRoutine(DB, worker_id):
     }
 
     DB["Routine"].insert_one(routine)
-    print("Routine Updated")
+    return
 
 
-def getRoutines(DB, query):
-    query_filter = {
-        
-    }
-    if query.get("date"):
-        query_filter["date"] = query.get("date")
-    if query.get("worker_id"):
-        query_filter["worker_id"] = query.get("worker_id")
-    if query.get("start_date") and query.get("end_date"):
-        start_date = datetime.strptime(query.get("start_date"), "%d-%m-%Y").date()
-        end_date = datetime.strptime(query.get("end_date"), "%d-%m-%Y").date()
+def getRoutines(DB):
+    query_filter = {}
+    worker_id = request.args.get("worker_id")
+    start_date = request.args.get("start_date")
+    end_date = request.args.get("end_date")
+
+    if worker_id:
+        query_filter["worker_id"] = worker_id
+    if start_date and end_date:
+        start_date = datetime.strptime(start_date, "%d-%m-%Y")
+        end_date = datetime.strptime(end_date, "%d-%m-%Y")
+        if start_date > end_date:
+            return jsonify({"msg": "Invalid date range"}), 400
         query_filter["date"] = {"$gte": start_date, "$lte": end_date}
-    if query.get("start_date") and not query.get("end_date"):
-        start_date = datetime.strptime(query.get("start_date"), "%d-%m-%Y").date()
+    if start_date and not end_date:
+        start_date = datetime.strptime(start_date, "%d-%m-%Y")
         query_filter["date"] = {"$gte": start_date}
-    if query.get("end_date") and not query.get("start_date"):
-        end_date = datetime.strptime(query.get("end_date"), "%d-%m-%Y").date()
+    if end_date and not start_date:
+        end_date = datetime.strptime(end_date, "%d-%m-%Y")
         query_filter["date"] = {"$lte": end_date}
 
-    routines = list(
-        DB["Routine"].find(
-            query_filter,
-        )
-    )
+    routines = list(DB["Routine"].find(query_filter))
+
     formatted_routines = []
+
     for routine in routines:
+        routine["_id"] = str(routine["_id"])
+        routine["worker_id"] = str(routine["worker_id"])
         routine = Routine(**routine)
-        routine_dict = routine.dict()
-        routine["date"] = routine["date"].strftime("%d-%m-%Y")
+        routine_dict = routine.dict(by_alias=True)
+        routine_dict["date"] = routine_dict["date"].strftime("%d-%m-%Y")
         routine_dict["start_time"] = routine_dict["start_time"].strftime("%H:%M:%S")
         if routine_dict["end_time"]:
             routine_dict["end_time"] = routine_dict["end_time"].strftime("%H:%M:%S")
         formatted_routines.append(routine_dict)
+
     return jsonify(formatted_routines), 200
