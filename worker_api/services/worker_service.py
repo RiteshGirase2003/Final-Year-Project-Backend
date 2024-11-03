@@ -147,7 +147,7 @@ def updateWorker(DB, id):
 
     updated_data = request.json
     if not updated_data:
-        raise (Exception("No data found to update"))
+        raise (Exception("No data found to update"))    
     id = ObjectId(id)
     existing_worker = DB.find_one({"_id": id, "is_active": True})
     if not existing_worker:

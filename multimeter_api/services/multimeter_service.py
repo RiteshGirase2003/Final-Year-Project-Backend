@@ -54,14 +54,20 @@ def getMultimeters(DB):
 
 
 def updateMultimeter(DB, updated_data, id):
-
     id = ObjectId(id)
     existing_multimeter = DB.find_one({"_id": id, "is_active": True})
     if not existing_multimeter:
         raise (Exception("Multimeter not found!"))
+    if "serial_no" in updated_data:
+        existing_multimeter = DB.find_one(
+            {"serial_no": updated_data["serial_no"], "is_active": True}
+        )
+        if existing_multimeter:
+            raise (Exception("Multimeter with this serial number already exists!"))
     updated_data = UpdateMultimeterDTO(**updated_data)
-    updated_data.updated_at = datetime.now()
-    DB.find_one_and_update({"_id": id}, {"$set": updated_data.dict()})
+    updated_data_dict = updated_data.dict(exclude_unset=True)
+    updated_data_dict["updated_at"] = datetime.now()
+    DB.find_one_and_update({"_id": id}, {"$set": updated_data_dict})
     return jsonify({"message": "Multimeter updated successfully"}), 200
 
 

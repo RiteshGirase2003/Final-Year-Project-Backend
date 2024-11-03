@@ -30,7 +30,6 @@ def create_inspection(DB, data):
         "worker_id": data.worker_id,
         "status": data.status,
         "date": datetime.now(),
-        "time": datetime.now(),
     }
     DB["Result"].insert_one(inspection)
     print("Inspection Created")
