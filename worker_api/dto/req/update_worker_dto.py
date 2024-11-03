@@ -3,9 +3,11 @@ from typing import Optional
 from datetime import datetime
 from enum import Enum
 
+
 class UserRole(str, Enum):
     admin = "admin"
     worker = "worker"
+
 
 class UpdateWorkerDTO(BaseModel):
     name: Optional[StrictStr]

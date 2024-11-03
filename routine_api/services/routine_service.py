@@ -1,5 +1,5 @@
 from bson import ObjectId
-from flask import jsonify
+from flask import jsonify, request
 from datetime import datetime, date, time
 from routine_api.schema.routine_schema import Routine
 
@@ -37,7 +37,7 @@ def updateRoutine(DB, worker_id):
 
 
 def getRoutines(DB):
-    """query_filter = {}
+    query_filter = {}
     worker_id = request.args.get("worker_id")
     start_date = request.args.get("start_date")
     end_date = request.args.get("end_date")
@@ -56,8 +56,8 @@ def getRoutines(DB):
     if end_date and not start_date:
         end_date = datetime.strptime(end_date, "%d-%m-%Y")
         query_filter["date"] = {"$lte": end_date}
-    """
-    routines = list(DB["Routine"].find())
+
+    routines = list(DB["Routine"].find(query_filter))
 
     formatted_routines = []
 

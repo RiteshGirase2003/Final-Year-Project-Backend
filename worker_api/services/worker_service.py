@@ -66,38 +66,8 @@ def createWorker(DB, worker: CreateWorkerDTO):
         raise Exception("Worker with this registration number already exists!")
     hashed_password = bcrypt.hashpw(worker.password.encode("utf-8"), bcrypt.gensalt())
     worker.password = hashed_password.decode("utf-8")
-    result = DB.insert_one(worker.dict())
-    user = DB.find_one({"_id": result.inserted_id})
-    user_id = str(user["_id"])
-    access_token = create_access_token(
-        identity={
-            "worker_id": user_id,
-            "reg_no": user["reg_no"],
-            "role": user["user_role"],
-        }
-    )
-    refresh_token = create_refresh_token(
-        identity={
-            "worker_id": user_id,
-            "reg_no": user["reg_no"],
-            "role": user["user_role"],
-        }
-    )
-    DB.update_one(
-        {"_id": result.inserted_id},
-        {
-            "$set": {
-                "refresh_token": {
-                    "token": refresh_token,
-                    "expires_at": datetime.now()
-                    + timedelta(minutes=refresh_token_expires),
-                }
-            }
-        },
-    )
+    DB.insert_one(worker.dict())
     response = make_response(jsonify({"message": "Worker created successfully"}), 201)
-    response.set_cookie("access_token", access_token, httponly=True)
-    response.set_cookie("refresh_token", refresh_token, httponly=True)
     return response
 
 
@@ -147,13 +117,18 @@ def updateWorker(DB, id):
 
     updated_data = request.json
     if not updated_data:
-        raise (Exception("No data found to update"))    
+        raise (Exception("No data found to update"))
+    if "password" in updated_data:
+        updated_data["password"] = bcrypt.hashpw(
+            updated_data["password"].encode("utf-8"), bcrypt.gensalt()
+        ).decode("utf-8")
     id = ObjectId(id)
     existing_worker = DB.find_one({"_id": id, "is_active": True})
     if not existing_worker:
         raise (Exception("Worker not found!"))
     updated_worker_data = UpdateWorkerDTO(**updated_data)
-    updated_data_dict = updated_worker_data.dict()
+    updated_data_dict = updated_worker_data.dict(exclude_unset=True)
+    updated_data_dict["updated_at"] = datetime.now()
     DB.find_one_and_update({"_id": id}, {"$set": updated_data_dict})
     return jsonify({"message": "Worker updated successfully"}), 200
 
