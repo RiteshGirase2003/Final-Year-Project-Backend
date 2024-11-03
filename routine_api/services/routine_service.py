@@ -38,6 +38,8 @@ def updateRoutine(DB, worker_id):
 
 def getRoutines(DB):
     query_filter = {}
+    page = request.args.get("page", 1, type=int)
+    limit = request.args.get("limit", 10, type=int)
     worker_id = request.args.get("worker_id")
     start_date = request.args.get("start_date")
     end_date = request.args.get("end_date")
@@ -57,7 +59,9 @@ def getRoutines(DB):
         end_date = datetime.strptime(end_date, "%d-%m-%Y")
         query_filter["date"] = {"$lte": end_date}
 
-    routines = list(DB["Routine"].find(query_filter))
+    routines = list(
+        DB["Routine"].find(query_filter).skip((page - 1) * limit).limit(limit)
+    )
 
     formatted_routines = []
 
@@ -72,4 +76,14 @@ def getRoutines(DB):
             routine_dict["end_time"] = routine_dict["end_time"].strftime("%H:%M:%S")
         formatted_routines.append(routine_dict)
 
-    return jsonify(formatted_routines), 200
+    return (
+        jsonify(
+            {
+                "data": formatted_routines,
+                "page": page,
+                "limit": limit,
+                "total": len(formatted_routines),
+            }
+        ),
+        200,
+    )

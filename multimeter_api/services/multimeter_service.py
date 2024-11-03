@@ -25,6 +25,8 @@ def getMultimeters(DB):
     query = {
         "is_active": True,
     }
+    page = request.args.get("page", 1, type=int)
+    limit = request.args.get("limit", 10, type=int)
     serial_no = request.args.get("serial_no")
     model = request.args.get("model")
     sort_order = request.args.get("sort_order", "asc")
@@ -35,7 +37,9 @@ def getMultimeters(DB):
 
     sort_criteria = [("created_at", 1 if sort_order == "asc" else -1)]
 
-    multimeters = DB.find(query).sort(sort_criteria)
+    multimeters = (
+        DB.find(query).sort(sort_criteria).skip((page - 1) * limit).limit(limit)
+    )
     multimeter_list = list(multimeters)
     results = []
     if multimeter_list:
@@ -47,7 +51,17 @@ def getMultimeters(DB):
             results.append(multimeter_data.dict())
     if len(results) == 0:
         raise (Exception("No multimeter found!"))
-    return jsonify(results), 200
+    return (
+        jsonify(
+            {
+                "data": results,
+                "total": DB.count_documents(query),
+                "page": page,
+                "limit": limit,
+            }
+        ),
+        200,
+    )
 
 
 """ Update Multimeter """

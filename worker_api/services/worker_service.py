@@ -75,7 +75,8 @@ def createWorker(DB, worker: CreateWorkerDTO):
 
 
 def getWorkers(DB):
-
+    page = request.args.get("page", 1, type=int)
+    limit = request.args.get("limit", 10, type=int)
     reg_no = request.args.get("reg_no")
     name = request.args.get("name")
     sort_by = request.args.get("sort_by")
@@ -95,7 +96,8 @@ def getWorkers(DB):
     pipeline = [{"$match": match_stage}]
     if sort_stage:
         pipeline.append({"$sort": sort_stage})
-
+    pipeline.append({"$skip": (page - 1) * limit})
+    pipeline.append({"$limit": limit})
     workers = list(DB.aggregate(pipeline))
     results = []
 
@@ -107,7 +109,17 @@ def getWorkers(DB):
             results.append(worker_data.dict())
     if len(results) == 0:
         raise (Exception("No worker found!"))
-    return jsonify(results), 200
+    return (
+        jsonify(
+            {
+                "data": results,
+                "page": page,
+                "limit": limit,
+                "total": len(results),
+            }
+        ),
+        200,
+    )
 
 
 """ Update Worker """
