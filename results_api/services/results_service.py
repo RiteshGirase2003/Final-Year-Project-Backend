@@ -1,4 +1,4 @@
-from flask import jsonify
+from flask import jsonify, request
 from results_api.dto.request.results_request_dto import ResultsRequestDTO
 from bson import ObjectId
 from datetime import datetime
@@ -30,22 +30,32 @@ def create_inspection(DB, data):
         "worker_id": data.worker_id,
         "status": data.status,
         "date": datetime.now(),
-        "time": datetime.now(),
     }
     DB["Result"].insert_one(inspection)
-    print("Inspection Created")
     return jsonify({"message": "Inspection created successfully"}), 201
 
 
 def get_inspections(DB):
-    inspections = DB["Result"].find()
+    page = request.args.get("page", 1, type=int)
+    limit = request.args.get("limit", 10, type=int)
+    inspections = DB["Result"].find().skip((page - 1) * limit).limit(limit)
     formatted = []
     for inspection in inspections:
         inspection["_id"] = str(inspection["_id"])
         inspection["meter_id"] = str(inspection["meter_id"])
         inspection["worker_id"] = str(inspection["worker_id"])
         formatted.append(inspection)
-    return jsonify({"inspections": list(formatted)}), 200
+    return (
+        jsonify(
+            {
+                "data": formatted,
+                "total": DB["Result"].count_documents({}),
+                "page": page,
+                "limit": limit,
+            }
+        ),
+        200,
+    )
 
 
 def delete_inspection(DB, inspection_id):

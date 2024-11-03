@@ -22,3 +22,21 @@ def jwt_required(fn):
         return fn(*args, **kwargs)
 
     return wrapper
+
+
+def check_role(role):
+    def decorator(fn):
+        @wraps(fn)
+        def wrapper(*args, **kwargs):
+            try:
+                verify_jwt_in_request()
+                if role != get_jwt_identity()["role"]:
+                    return jsonify({"msg": "Unauthorized access"}), 403
+            except Exception as e:
+                print(e)
+                return jsonify({"msg": "Missing or invalid token"}), 401
+            return fn(*args, **kwargs)
+
+        return wrapper
+
+    return decorator

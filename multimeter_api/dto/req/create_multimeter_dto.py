@@ -12,3 +12,4 @@ class CreateMultimeterDTO(BaseModel):
     created_at: Optional[datetime] = Field(default_factory=datetime.now)
     updated_at: Optional[datetime] = Field(default_factory=datetime.now)
     is_active: Optional[bool] = Field(default=True)
+    created_by : StrictStr

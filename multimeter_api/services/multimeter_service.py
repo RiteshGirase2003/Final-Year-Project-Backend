@@ -25,6 +25,8 @@ def getMultimeters(DB):
     query = {
         "is_active": True,
     }
+    page = request.args.get("page", 1, type=int)
+    limit = request.args.get("limit", 10, type=int)
     serial_no = request.args.get("serial_no")
     model = request.args.get("model")
     sort_order = request.args.get("sort_order", "asc")
@@ -35,7 +37,9 @@ def getMultimeters(DB):
 
     sort_criteria = [("created_at", 1 if sort_order == "asc" else -1)]
 
-    multimeters = DB.find(query).sort(sort_criteria)
+    multimeters = (
+        DB.find(query).sort(sort_criteria).skip((page - 1) * limit).limit(limit)
+    )
     multimeter_list = list(multimeters)
     results = []
     if multimeter_list:
@@ -47,21 +51,37 @@ def getMultimeters(DB):
             results.append(multimeter_data.dict())
     if len(results) == 0:
         raise (Exception("No multimeter found!"))
-    return jsonify(results), 200
+    return (
+        jsonify(
+            {
+                "data": results,
+                "total": DB.count_documents(query),
+                "page": page,
+                "limit": limit,
+            }
+        ),
+        200,
+    )
 
 
 """ Update Multimeter """
 
 
 def updateMultimeter(DB, updated_data, id):
-
     id = ObjectId(id)
     existing_multimeter = DB.find_one({"_id": id, "is_active": True})
     if not existing_multimeter:
         raise (Exception("Multimeter not found!"))
+    if "serial_no" in updated_data:
+        existing_multimeter = DB.find_one(
+            {"serial_no": updated_data["serial_no"], "is_active": True}
+        )
+        if existing_multimeter:
+            raise (Exception("Multimeter with this serial number already exists!"))
     updated_data = UpdateMultimeterDTO(**updated_data)
-    updated_data.updated_at = datetime.now()
-    DB.find_one_and_update({"_id": id}, {"$set": updated_data.dict()})
+    updated_data_dict = updated_data.dict(exclude_unset=True)
+    updated_data_dict["updated_at"] = datetime.now()
+    DB.find_one_and_update({"_id": id}, {"$set": updated_data_dict})
     return jsonify({"message": "Multimeter updated successfully"}), 200
 
 
