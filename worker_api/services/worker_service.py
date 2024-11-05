@@ -9,6 +9,7 @@ from flask_jwt_extended import create_access_token, create_refresh_token
 import jwt
 import os
 from results_api.dto.request.results_request_dto import ResultsRequestDTO
+from middleware.upload_photos import upload_image
 
 refresh_token_expires = int(os.getenv("REFRESH_TOKEN_EXPIRES_IN"))
 
@@ -59,7 +60,12 @@ def loginUser(DB, data):
 """ Create Worker """
 
 
-def createWorker(DB, worker: CreateWorkerDTO):
+def createWorker(DB, worker):
+    worker_photo = request.files.get("photo")
+    if not worker_photo:
+        raise Exception("No photo found!")
+    worker["photo"] = upload_image(worker_photo)
+    print(worker["photo"])
     worker = CreateWorkerDTO(**worker)
     existing_worker = DB.find_one({"reg_no": worker.reg_no, "is_active": True})
     if existing_worker:
@@ -84,7 +90,7 @@ def getWorkers(DB):
 
     match_stage = {"is_active": True}
     if reg_no:
-        match_stage["reg_no"] = int(reg_no)
+        match_stage["reg_no"] = reg_no
     if name:
         name = name.strip('"')
         match_stage["name"] = {"$regex": name, "$options": "i"}
@@ -127,13 +133,17 @@ def getWorkers(DB):
 
 def updateWorker(DB, id):
 
-    updated_data = request.json
-    if not updated_data:
-        raise (Exception("No data found to update"))
+    updated_data = request.form.to_dict()
+    print(updated_data)
+    photo = request.files.get("photo")
+    if not updated_data and not photo:
+        raise Exception("No data found to update")
     if "password" in updated_data:
         updated_data["password"] = bcrypt.hashpw(
             updated_data["password"].encode("utf-8"), bcrypt.gensalt()
         ).decode("utf-8")
+    if photo:
+        updated_data["photo"] = upload_image(request.files.get("photo"))
     id = ObjectId(id)
     existing_worker = DB.find_one({"_id": id, "is_active": True})
     if not existing_worker:

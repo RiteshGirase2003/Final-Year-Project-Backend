@@ -10,7 +10,7 @@ class UserRole(str, Enum):
 class WorkerResDTO(BaseModel):
     id: StrictStr
     name: StrictStr
-    reg_no: StrictInt
+    reg_no: StrictStr
     photo: StrictStr
     created_at: Optional[datetime]
     updated_at: Optional[datetime]

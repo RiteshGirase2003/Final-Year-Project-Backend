@@ -16,7 +16,7 @@ class RefreshToken(BaseModel):
 
 class CreateWorkerDTO(BaseModel):
     name: StrictStr
-    reg_no: StrictInt
+    reg_no: StrictStr
     password: StrictStr
     photo: StrictStr
     created_at: Optional[datetime] = Field(default_factory=datetime.utcnow)
