@@ -4,12 +4,20 @@ from multimeter_api.dto.req.create_multimeter_dto import CreateMultimeterDTO
 from multimeter_api.dto.req.update_multimeter_dto import UpdateMultimeterDTO
 from multimeter_api.dto.res.multimeter_res_dto import MultimeterResDTO
 from datetime import datetime
+from middleware.upload_photos import upload_image
 
 """ Create Multimeter """
 
 
 def createMultimeter(DB, multimeter):
-
+    cover_image = request.files.get("photo")
+    screen_photos = request.files.getlist("screen_photos")
+    if not cover_image or not screen_photos:
+        raise (Exception("Please provide cover image and screen photos!"))
+    cover_image = upload_image(cover_image)
+    screen_photos = [upload_image(photo) for photo in screen_photos]
+    multimeter["photo"] = cover_image
+    multimeter["screen_photos"] = screen_photos
     existing_multimeter = DB.find_one({"serial_no": multimeter["serial_no"]})
     if existing_multimeter:
         raise (Exception("Multimeter with this serial number already exists!"))
@@ -78,6 +86,12 @@ def updateMultimeter(DB, updated_data, id):
         )
         if existing_multimeter:
             raise (Exception("Multimeter with this serial number already exists!"))
+    photo = request.files.get("photo")
+    if photo:
+        updated_data["photo"] = upload_image(photo)
+    screen_photos = request.files.getlist("screen_photos")
+    if screen_photos:
+        updated_data["screen_photos"] = [upload_image(photo) for photo in screen_photos]
     updated_data = UpdateMultimeterDTO(**updated_data)
     updated_data_dict = updated_data.dict(exclude_unset=True)
     updated_data_dict["updated_at"] = datetime.now()

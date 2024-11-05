@@ -37,7 +37,7 @@ def get_workers():
 @jwt_required
 @check_role("admin")
 def add_worker():
-    new_worker = request.json
+    new_worker = request.form.to_dict()
     return createWorker(db["Worker"], new_worker)
 
 

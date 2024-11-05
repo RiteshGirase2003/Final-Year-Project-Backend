@@ -22,7 +22,7 @@ def get_multimeters():
 @jwt_required
 @check_role("admin")
 def add_multimeter():
-    new_multimeter = request.json
+    new_multimeter = request.form.to_dict()
     worker_id = get_jwt_identity()["worker_id"]
     new_multimeter["created_by"] = worker_id
     data = createMultimeter(DB["Multimeter"], new_multimeter)
@@ -33,7 +33,7 @@ def add_multimeter():
 @jwt_required
 @check_role("admin")
 def update_multimeter(id):
-    updated_data = request.json
+    updated_data = request.form.to_dict()
     data = updateMultimeter(DB["Multimeter"], updated_data, id)
     return data
 
