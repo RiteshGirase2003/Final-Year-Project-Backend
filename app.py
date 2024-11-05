@@ -10,6 +10,7 @@ from flask_jwt_extended import JWTManager
 from dotenv import load_dotenv
 from datetime import timedelta
 import os
+from flask_cors import CORS
 
 load_dotenv()
 access_token_expires = int(os.getenv("ACCESS_TOKEN_EXPIRES_IN"))
@@ -22,7 +23,7 @@ app.config["JWT_ACCESS_COOKIE_NAME"] = "access_token"
 app.config["JWT_REFRESH_COOKIE_NAME"] = "refresh_token"
 app.config["JWT_COOKIE_CSRF_PROTECT"] = False
 jwt = JWTManager(app)
-
+CORS(app, resources={r"/*": {"origins": ["http://localhost:5173"]}})
 app.register_error_handler(ValidationError, handle_validation_error)
 app.register_error_handler(Exception, handle_generic_error)
 
