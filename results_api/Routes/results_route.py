@@ -1,11 +1,12 @@
 from flask import Blueprint, request
 from db_connect import DB as db
-from middleware.auth import jwt_required
+from middleware.auth import jwt_required, check_role
 from flask_jwt_extended import get_jwt_identity
 from results_api.services.results_service import (
     create_inspection,
     get_inspections,
     delete_inspection,
+    getNumbers
 )
 
 results_bp = Blueprint("results_bp", __name__)
@@ -14,7 +15,8 @@ results_bp = Blueprint("results_bp", __name__)
 @results_bp.route("/getInspections", methods=["GET"])
 @jwt_required
 def inspections():
-    return get_inspections(db)
+    worker_id = get_jwt_identity()["worker_id"]
+    return get_inspections(db,worker_id)
 
 
 @results_bp.route("/inspect", methods=["POST"])
@@ -28,5 +30,13 @@ def inspect():
 
 @results_bp.route("/remove_inspection/<string:inspection_id>", methods=["DELETE"])
 @jwt_required
+@check_role('admin')
 def remove_inspection(inspection_id):
     return delete_inspection(db, inspection_id)
+
+
+@results_bp.route("/analytics/numbers",methods=["GET"])
+@jwt_required
+def getAnalytics():
+    worker_id = get_jwt_identity()["worker_id"]
+    return getNumbers(db,worker_id)
