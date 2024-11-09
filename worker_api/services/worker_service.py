@@ -49,9 +49,10 @@ def loginUser(DB, data):
             }
         },
     )
-    response = make_response(
-        jsonify({"message": f"{user["user_role"]} logged in successfully"}), 200
-    )
+    user = WorkerResDTO(
+        id=user_id, **{k: v for k, v in user.items() if k != "_id"}
+    ).dict()
+    response = make_response(jsonify({"user": user, "token": access_token}), 200)
     response.set_cookie("access_token", access_token, httponly=True)
     response.set_cookie("refresh_token", refresh_token, httponly=True)
     return response
@@ -75,6 +76,43 @@ def createWorker(DB, worker):
     DB.insert_one(worker.dict())
     response = make_response(jsonify({"message": "Worker created successfully"}), 201)
     return response
+
+
+""" Get Logged In Worker """
+
+
+def loggedInWorker(DB):
+    access_token = request.cookies.get("access_token")
+    if not access_token:
+        raise Exception("No access token found!")
+    try:
+        decoded_token = jwt.decode(
+            access_token, os.getenv("JWT_SECRET_KEY"), algorithms=["HS256"]
+        )
+    except jwt.ExpiredSignatureError:
+        raise Exception("Access token has expired!")
+    except jwt.InvalidTokenError:
+        raise Exception("Invalid access token!")
+
+    if (
+        "sub" not in decoded_token
+        or "worker_id" not in decoded_token["sub"]
+        or "role" not in decoded_token["sub"]
+    ):
+        raise Exception("Invalid access token payload!")
+
+    worker_id = ObjectId(decoded_token["sub"]["worker_id"])
+    user_role = decoded_token["sub"]["role"]
+    worker = DB.find_one(
+        {"_id": worker_id, "is_active": True, "user_role": str(user_role)}
+    )
+    if not worker:
+        raise Exception("Worker not found!")
+    worker["_id"] = str(worker["_id"])
+    worker_data = WorkerResDTO(
+        id=worker["_id"], **{k: v for k, v in worker.items() if k != "_id"}
+    )
+    return jsonify(worker_data.dict()), 200
 
 
 """ Get Worker """
@@ -205,6 +243,7 @@ def refreshAccessToken(DB):
         raise Exception("Invalid worker data: missing refresh token expiration")
 
     if datetime.now() > worker["refresh_token"]["expires_at"]:
+        print("Expiration")
         raise Exception("Refresh token has expired!")
 
     access_token = create_access_token(
@@ -224,7 +263,7 @@ def refreshAccessToken(DB):
             }
         },
     )
-    response = make_response(jsonify({"message": "Access token refreshed"}), 200)
+    response = make_response(jsonify({"token": access_token}), 200)
     response.set_cookie("access_token", access_token, httponly=True)
     return response
 

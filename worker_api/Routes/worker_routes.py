@@ -8,11 +8,18 @@ from worker_api.services.worker_service import (
     loginUser,
     refreshAccessToken,
     logoutUser,
+    loggedInWorker,
 )
 from middleware.auth import jwt_required, check_role
 from worker_api.dto.req.create_worker_dto import UserRole
 
 worker_bp = Blueprint("worker_bp", __name__)
+
+
+@worker_bp.route("/me", methods=["GET"])
+@jwt_required
+def get_me():
+    return loggedInWorker(db["Worker"])
 
 
 @worker_bp.route("/login", methods=["POST"])
@@ -21,7 +28,7 @@ def login():
     return loginUser(db["Worker"], data)
 
 
-@worker_bp.route("/refresh", methods=["POST"])
+@worker_bp.route("/refresh", methods=["GET"])
 def refresh():
     return refreshAccessToken(db["Worker"])
 
