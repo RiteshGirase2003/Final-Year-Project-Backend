@@ -36,9 +36,13 @@ def create_inspection(DB, data):
 
 
 def get_inspections(DB):
+    worker_id = request.args.get("worker_id")
+    query = {}
+    if worker_id:
+        query["worker_id"] = worker_id
     page = request.args.get("page", 1, type=int)
     limit = request.args.get("limit", 10, type=int)
-    inspections = DB["Result"].find().skip((page - 1) * limit).limit(limit)
+    inspections = DB["Result"].find(query).skip((page - 1) * limit).limit(limit)
     formatted = []
     for inspection in inspections:
         inspection["_id"] = str(inspection["_id"])

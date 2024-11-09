@@ -13,7 +13,6 @@ results_bp = Blueprint("results_bp", __name__)
 
 @results_bp.route("/getInspections", methods=["GET"])
 @jwt_required
-@check_role('admin')
 def inspections():
     return get_inspections(db)
 
@@ -32,3 +31,4 @@ def inspect():
 @check_role('admin')
 def remove_inspection(inspection_id):
     return delete_inspection(db, inspection_id)
+
