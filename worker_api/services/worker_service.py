@@ -58,6 +58,27 @@ def loginUser(DB, data):
     return response
 
 
+""" Handle Pagination """
+
+
+def handlePagination(DB):
+    page = int(request.args.get("page", 1))
+    limit = int(request.args.get("limit", 10))
+    total = DB.count_documents({"is_active": True})
+    total_pages = (total + limit - 1) // limit
+    if page > total_pages:
+        page = total_pages
+    data = DB.find({"is_active": True}).skip((page - 1) * limit).limit(limit)
+    res = []
+    for worker in data:
+        entry = WorkerResDTO(
+            id=str(worker["_id"]), **{k: v for k, v in worker.items() if k != "_id"}
+        ).dict()
+        res.append(entry)
+    print("Handle Pagination Completed")
+    return res, total, page, limit
+
+
 """ Create Worker """
 
 
@@ -66,7 +87,6 @@ def createWorker(DB, worker):
     if not worker_photo:
         raise Exception("No photo found!")
     worker["photo"] = upload_image(worker_photo)
-    print(worker["photo"])
     worker = CreateWorkerDTO(**worker)
     existing_worker = DB.find_one({"reg_no": worker.reg_no, "is_active": True})
     if existing_worker:
@@ -74,8 +94,16 @@ def createWorker(DB, worker):
     hashed_password = bcrypt.hashpw(worker.password.encode("utf-8"), bcrypt.gensalt())
     worker.password = hashed_password.decode("utf-8")
     DB.insert_one(worker.dict())
-    response = make_response(jsonify({"message": "Worker created successfully"}), 201)
-    return response
+    data, total, page, limit = handlePagination(DB)
+    return (
+        jsonify(
+            {
+                "data": data,
+                "meta": {"page": page, "limit": limit, "total": total},
+            }
+        ),
+        200,
+    )
 
 
 """ Get Logged In Worker """
@@ -157,9 +185,7 @@ def getWorkers(DB):
         jsonify(
             {
                 "data": results,
-                "page": page,
-                "limit": limit,
-                "total": len(results),
+                "meta": {"page": page, "limit": limit, "total": len(results)},
             }
         ),
         200,
@@ -172,7 +198,6 @@ def getWorkers(DB):
 def updateWorker(DB, id):
 
     updated_data = request.form.to_dict()
-    print(updated_data)
     photo = request.files.get("photo")
     if not updated_data and not photo:
         raise Exception("No data found to update")
@@ -190,7 +215,16 @@ def updateWorker(DB, id):
     updated_data_dict = updated_worker_data.dict(exclude_unset=True)
     updated_data_dict["updated_at"] = datetime.now()
     DB.find_one_and_update({"_id": id}, {"$set": updated_data_dict})
-    return jsonify({"message": "Worker updated successfully"}), 200
+    data, total, page, limit = handlePagination(DB)
+    return (
+        jsonify(
+            {
+                "data": data,
+                "meta": {"page": page, "limit": limit, "total": total},
+            }
+        ),
+        200,
+    )
 
 
 """ Delete Worker """
