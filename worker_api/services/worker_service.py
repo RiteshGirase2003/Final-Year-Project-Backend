@@ -96,12 +96,7 @@ def createWorker(DB, worker):
     DB.insert_one(worker.dict())
     data, total, page, limit = handlePagination(DB)
     return (
-        jsonify(
-            {
-                "data": data,
-                "meta": {"page": page, "limit": limit, "total": total},
-            }
-        ),
+        jsonify(data),
         200,
     )
 
@@ -162,7 +157,7 @@ def getWorkers(DB):
         match_stage["name"] = {"$regex": name, "$options": "i"}
 
     sort_stage = {}
-    if sort_by in ["name", "reg_no"]:
+    if sort_by in ["name", "reg_no", "created_at"]:
         sort_stage[sort_by] = 1 if sort_order == "asc" else -1
 
     pipeline = [{"$match": match_stage}]
@@ -172,7 +167,7 @@ def getWorkers(DB):
     pipeline.append({"$limit": limit})
     workers = list(DB.aggregate(pipeline))
     results = []
-
+    total = DB.count_documents({"is_active": True})
     if workers:
         for worker in workers:
             worker_data = WorkerResDTO(
@@ -182,12 +177,7 @@ def getWorkers(DB):
     if len(results) == 0:
         raise (Exception("No worker found!"))
     return (
-        jsonify(
-            {
-                "data": results,
-                "meta": {"page": page, "limit": limit, "total": len(results)},
-            }
-        ),
+        jsonify(results),
         200,
     )
 
@@ -217,12 +207,7 @@ def updateWorker(DB, id):
     DB.find_one_and_update({"_id": id}, {"$set": updated_data_dict})
     data, total, page, limit = handlePagination(DB)
     return (
-        jsonify(
-            {
-                "data": data,
-                "meta": {"page": page, "limit": limit, "total": total},
-            }
-        ),
+        jsonify(data),
         200,
     )
 
@@ -238,7 +223,8 @@ def deleteWorker(DB, id):
     DB.find_one_and_update(
         {"_id": id}, {"$set": {"is_active": False, "updated_at": datetime.now()}}
     )
-    return jsonify({"message": "Worker deleted successfully"}), 200
+    data, total, page, limit = handlePagination(DB)
+    return jsonify(data), 200
 
 
 """ Refresh Access Token """
