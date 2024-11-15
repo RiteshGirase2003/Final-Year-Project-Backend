@@ -80,14 +80,8 @@ def get_inspections(DB, worker_id):
     if start_date and end_date:
         start_date = dateutil.parser.parse(start_date)
         end_date = dateutil.parser.parse(end_date)
-        print(start_date, end_date)
         if start_date > end_date:
-            return (
-                jsonify(
-                    {"message": "Start date should be less than or equal to end date"}
-                ),
-                400,
-            )
+            raise Exception("Invalid date range")
         query["date"] = {"$gte": start_date, "$lte": end_date}
     if request.args.get("result"):
         query["status"] = str(request.args.get("result"))

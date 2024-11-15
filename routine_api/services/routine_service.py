@@ -2,6 +2,7 @@ from bson import ObjectId
 from flask import jsonify, request
 from datetime import datetime, date, time
 from routine_api.schema.routine_schema import Routine
+import dateutil.parser
 
 
 def updateRoutine(DB, worker_id):
@@ -41,23 +42,21 @@ def getRoutines(DB):
     page = request.args.get("page", 1, type=int)
     limit = request.args.get("limit", 10, type=int)
     worker_id = request.args.get("worker_id")
-    start_date = request.args.get("start_date")
-    end_date = request.args.get("end_date")
+    start_date = request.args.get("startDate")
+    end_date = request.args.get("endDate")
 
     if worker_id:
         query_filter["worker_id"] = worker_id
     if start_date and end_date:
-        start_date = datetime.strptime(start_date, "%d-%m-%Y")
-        end_date = datetime.strptime(end_date, "%d-%m-%Y")
+        start_date = dateutil.parser.parse(start_date)
+        end_date = dateutil.parser.parse(end_date)
         if start_date > end_date:
             return jsonify({"msg": "Invalid date range"}), 400
         query_filter["date"] = {"$gte": start_date, "$lte": end_date}
     if start_date and not end_date:
-        start_date = datetime.strptime(start_date, "%d-%m-%Y")
-        query_filter["date"] = {"$gte": start_date}
+        raise Exception("End date is required")
     if end_date and not start_date:
-        end_date = datetime.strptime(end_date, "%d-%m-%Y")
-        query_filter["date"] = {"$lte": end_date}
+        raise Exception("Start date is required")
 
     routines = list(
         DB["Routine"].find(query_filter).skip((page - 1) * limit).limit(limit)
@@ -71,18 +70,22 @@ def getRoutines(DB):
         routine = Routine(**routine)
         routine_dict = routine.dict(by_alias=True)
         routine_dict["date"] = routine_dict["date"].strftime("%d-%m-%Y")
-        routine_dict["start_time"] = routine_dict["start_time"].strftime("%H:%M:%S")
+        routine_dict["start_time"] = routine_dict["start_time"].strftime("%I:%M:%S %p")
         if routine_dict["end_time"]:
-            routine_dict["end_time"] = routine_dict["end_time"].strftime("%H:%M:%S")
+            routine_dict["end_time"] = routine_dict["end_time"].strftime("%I:%M:%S %p")
         formatted_routines.append(routine_dict)
+
+    total = DB["Routine"].count_documents(query_filter)
 
     return (
         jsonify(
             {
                 "data": formatted_routines,
-                "page": page,
-                "limit": limit,
-                "total": len(formatted_routines),
+                "meta": {
+                    "page": page,
+                    "limit": limit,
+                    "total": total,
+                },
             }
         ),
         200,
