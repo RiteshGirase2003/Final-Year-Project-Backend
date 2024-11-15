@@ -72,6 +72,25 @@ def get_inspections(DB, worker_id):
         query["worker_id"] = worker_id
     page = request.args.get("page", 1, type=int)
     limit = request.args.get("limit", 10, type=int)
+    for key in ["serial_no", "client"]:
+        if request.args.get(key):
+            query[key] = {"$regex": request.args.get(key), "$options": "i"}
+    start_date = request.args.get("startDate")
+    end_date = request.args.get("endDate")
+    if start_date and end_date:
+        start_date = dateutil.parser.parse(start_date)
+        end_date = dateutil.parser.parse(end_date)
+        print(start_date, end_date)
+        if start_date > end_date:
+            return (
+                jsonify(
+                    {"message": "Start date should be less than or equal to end date"}
+                ),
+                400,
+            )
+        query["date"] = {"$gte": start_date, "$lte": end_date}
+    if request.args.get("result"):
+        query["status"] = str(request.args.get("result"))
 
     pipeline = [
         {"$match": query},
@@ -101,7 +120,9 @@ def get_inspections(DB, worker_id):
     total = DB["Result"].count_documents(query)
 
     return (
-        jsonify({"data": formatted, "total": total, "page": page, "limit": limit}),
+        jsonify(
+            {"data": formatted, "meta": {"total": total, "page": page, "limit": limit}}
+        ),
         200,
     )
 
