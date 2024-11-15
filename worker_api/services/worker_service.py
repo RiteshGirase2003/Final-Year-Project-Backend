@@ -96,7 +96,16 @@ def createWorker(DB, worker):
     DB.insert_one(worker.dict())
     data, total, page, limit = handlePagination(DB)
     return (
-        jsonify(data),
+        jsonify(
+            {
+                "data": data,
+                "meta": {
+                    "total": total,
+                    "page": page,
+                    "limit": limit,
+                },
+            }
+        ),
         200,
     )
 
@@ -177,7 +186,16 @@ def getWorkers(DB):
     if len(results) == 0:
         raise (Exception("No worker found!"))
     return (
-        jsonify(results),
+        jsonify(
+            {
+                "data": results,
+                "meta": {
+                    "total": total,
+                    "page": page,
+                    "limit": limit,
+                },
+            }
+        ),
         200,
     )
 
@@ -207,7 +225,16 @@ def updateWorker(DB, id):
     DB.find_one_and_update({"_id": id}, {"$set": updated_data_dict})
     data, total, page, limit = handlePagination(DB)
     return (
-        jsonify(data),
+        jsonify(
+            {
+                "data": data,
+                "meta": {
+                    "total": total,
+                    "page": page,
+                    "limit": limit,
+                },
+            }
+        ),
         200,
     )
 
@@ -224,7 +251,19 @@ def deleteWorker(DB, id):
         {"_id": id}, {"$set": {"is_active": False, "updated_at": datetime.now()}}
     )
     data, total, page, limit = handlePagination(DB)
-    return jsonify(data), 200
+    return (
+        jsonify(
+            {
+                "data": data,
+                "meta": {
+                    "total": total,
+                    "page": page,
+                    "limit": limit,
+                },
+            }
+        ),
+        200,
+    )
 
 
 """ Refresh Access Token """
