@@ -18,9 +18,6 @@ def createMultimeter(DB, multimeter):
     screen_photos = [upload_image(photo) for photo in screen_photos]
     multimeter["photo"] = cover_image
     multimeter["screen_photos"] = screen_photos
-    existing_multimeter = DB.find_one({"serial_no": multimeter["serial_no"]})
-    if existing_multimeter:
-        raise (Exception("Multimeter with this serial number already exists!"))
     multimeter = CreateMultimeterDTO(**multimeter)
     DB.insert_one(multimeter.dict())
     return jsonify({"message": "Multimeter created successfully"}), 201
@@ -35,11 +32,8 @@ def getMultimeters(DB):
     }
     page = request.args.get("page", 1, type=int)
     limit = request.args.get("limit", 10, type=int)
-    serial_no = request.args.get("serial_no")
     model = request.args.get("model")
     sort_order = request.args.get("sort_order", "asc")
-    if serial_no:
-        query["serial_no"] = {"$regex": serial_no.strip('"'), "$options": "i"}
     if model:
         query["model"] = model.strip('"')
 
@@ -80,12 +74,6 @@ def updateMultimeter(DB, updated_data, id):
     existing_multimeter = DB.find_one({"_id": id, "is_active": True})
     if not existing_multimeter:
         raise (Exception("Multimeter not found!"))
-    if "serial_no" in updated_data:
-        existing_multimeter = DB.find_one(
-            {"serial_no": updated_data["serial_no"], "is_active": True}
-        )
-        if existing_multimeter:
-            raise (Exception("Multimeter with this serial number already exists!"))
     photo = request.files.get("photo")
     if photo:
         updated_data["photo"] = upload_image(photo)

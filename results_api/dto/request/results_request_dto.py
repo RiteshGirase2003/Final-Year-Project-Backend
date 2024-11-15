@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, StrictStr
 from enum import Enum
 
 
@@ -8,6 +8,8 @@ class StatusEnum(str, Enum):
 
 
 class ResultsRequestDTO(BaseModel):
-    meter_id: str
-    worker_id: str
+    serial_no: StrictStr
+    meter_id: StrictStr
+    worker_id: StrictStr
     status: StatusEnum
+    client: StrictStr

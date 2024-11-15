@@ -3,6 +3,27 @@ from results_api.dto.request.results_request_dto import ResultsRequestDTO
 from bson import ObjectId
 from datetime import datetime
 import dateutil.parser
+
+""" Handle Pagination """
+
+
+def handlePagination(DB):
+    page = int(request.args.get("page", 1))
+    limit = int(request.args.get("limit", 10))
+    total = DB.count_documents({})
+    total_pages = (total + limit - 1) // limit
+    if total_pages == 0:
+        return [], 0, 0, 0
+    if page > total_pages:
+        page = total_pages
+    data = DB.find({}).skip((page - 1) * limit).limit(limit)
+    res = []
+    for inspection in data:
+        inspection["_id"] = str(inspection["_id"])
+        res.append(inspection)
+    return res, total, page, limit
+
+
 """ Create and update inspection """
 
 
@@ -13,26 +34,36 @@ def create_inspection(DB, data):
     )
     if not meter:
         return jsonify({"message": "Meter not found"}), 404
-    worker = DB["Worker"].find_one({"_id": ObjectId(data.worker_id), "is_active": True})
-    if not worker:
-        return jsonify({"message": "Worker not found"}), 404
-    existing_result = DB["Result"].find_one(
-        {"meter_id": data.meter_id, "worker_id": data.worker_id}
-    )
-    if existing_result:
-        DB["Result"].update_one(
-            {"meter_id": data.meter_id, "worker_id": data.worker_id},
-            {"$set": {"status": data.status, "date": datetime.now()}},
+    if data.serial_no and data.client:
+        exists = DB["Result"].find_one(
+            {"serial_no": data.serial_no, "client": data.client}
         )
-        return jsonify({"message": "Inspection updated successfully"}), 200
+        if exists:
+            DB["Result"].update_one(
+                {"_id": ObjectId(exists["_id"])},
+                {
+                    "$set": {
+                        "meter_id": data.meter_id,
+                        "worker_id": data.worker_id,
+                        "status": data.status,
+                        "date": datetime.now(),
+                    }
+                },
+            )
     inspection = {
+        "serial_no": data.serial_no,
+        "client": data.client,
         "meter_id": data.meter_id,
         "worker_id": data.worker_id,
         "status": data.status,
         "date": datetime.now(),
     }
     DB["Result"].insert_one(inspection)
-    return jsonify({"message": "Inspection created successfully"}), 201
+    data, total, page, limit = handlePagination(DB["Result"])
+    return (
+        jsonify({"data": data, "meta": {"total": total, "page": page, "limit": limit}}),
+        201,
+    )
 
 
 def get_inspections(DB, worker_id):
@@ -81,7 +112,11 @@ def delete_inspection(DB, inspection_id):
         raise Exception("Inspection Not Found!")
 
     DB["Result"].delete_one({"_id": ObjectId(inspection_id)})
-    return jsonify({"message": "Inspection deleted successfully!"}), 200
+    data, total, page, limit = handlePagination(DB["Result"])
+    return (
+        jsonify({"data": data, "meta": {"total": total, "page": page, "limit": limit}}),
+        200,
+    )
 
 
 def getNumbers(DB, worker_id):

@@ -5,7 +5,6 @@ from datetime import datetime
 
 class MultimeterResDTO(BaseModel):
     id: StrictStr
-    serial_no: StrictStr
     model: StrictStr
     description: StrictStr
     photo: StrictStr
