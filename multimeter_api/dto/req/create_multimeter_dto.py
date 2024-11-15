@@ -4,7 +4,6 @@ from datetime import datetime
 
 
 class CreateMultimeterDTO(BaseModel):
-    serial_no: StrictStr
     model: StrictStr
     description: StrictStr
     photo: StrictStr

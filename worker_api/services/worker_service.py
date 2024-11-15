@@ -66,6 +66,8 @@ def handlePagination(DB):
     limit = int(request.args.get("limit", 10))
     total = DB.count_documents({"is_active": True})
     total_pages = (total + limit - 1) // limit
+    if total_pages == 0:
+        return [], 0, 0, 0
     if page > total_pages:
         page = total_pages
     data = DB.find({"is_active": True}).skip((page - 1) * limit).limit(limit)

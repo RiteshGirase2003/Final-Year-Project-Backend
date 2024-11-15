@@ -6,6 +6,28 @@ from multimeter_api.dto.res.multimeter_res_dto import MultimeterResDTO
 from datetime import datetime
 from middleware.upload_photos import upload_image
 
+""" Handle Pagination """
+
+
+def handlePagination(DB):
+    page = int(request.args.get("page", 1))
+    limit = int(request.args.get("limit", 10))
+    total = DB.count_documents({"is_active": True})
+    total_pages = (total + limit - 1) // limit
+    if total_pages == 0:
+        return [], 0, 0, 0
+    if page > total_pages:
+        page = total_pages
+    data = DB.find({"is_active": True}).skip((page - 1) * limit).limit(limit)
+    res = []
+    for meter in data:
+        entry = MultimeterResDTO(
+            id=str(meter["_id"]), **{k: v for k, v in meter.items() if k != "_id"}
+        ).dict()
+        res.append(entry)
+    return res, total, page, limit
+
+
 """ Create Multimeter """
 
 
@@ -18,12 +40,22 @@ def createMultimeter(DB, multimeter):
     screen_photos = [upload_image(photo) for photo in screen_photos]
     multimeter["photo"] = cover_image
     multimeter["screen_photos"] = screen_photos
-    existing_multimeter = DB.find_one({"serial_no": multimeter["serial_no"]})
-    if existing_multimeter:
-        raise (Exception("Multimeter with this serial number already exists!"))
     multimeter = CreateMultimeterDTO(**multimeter)
     DB.insert_one(multimeter.dict())
-    return jsonify({"message": "Multimeter created successfully"}), 201
+    data, total, page, limit = handlePagination(DB)
+    return (
+        jsonify(
+            {
+                "data": data,
+                "meta": {
+                    "page": page,
+                    "limit": limit,
+                    "total": total,
+                },
+            }
+        ),
+        201,
+    )
 
 
 """ Get Multimeter """
@@ -35,13 +67,10 @@ def getMultimeters(DB):
     }
     page = request.args.get("page", 1, type=int)
     limit = request.args.get("limit", 10, type=int)
-    serial_no = request.args.get("serial_no")
     model = request.args.get("model")
     sort_order = request.args.get("sort_order", "asc")
-    if serial_no:
-        query["serial_no"] = {"$regex": serial_no.strip('"'), "$options": "i"}
     if model:
-        query["model"] = model.strip('"')
+        query["model"] = {"$regex": model, "$options": "i"}
 
     sort_criteria = [("created_at", 1 if sort_order == "asc" else -1)]
 
@@ -49,6 +78,7 @@ def getMultimeters(DB):
         DB.find(query).sort(sort_criteria).skip((page - 1) * limit).limit(limit)
     )
     multimeter_list = list(multimeters)
+
     results = []
     if multimeter_list:
         for multimeter in multimeter_list:
@@ -59,13 +89,16 @@ def getMultimeters(DB):
             results.append(multimeter_data.dict())
     if len(results) == 0:
         raise (Exception("No multimeter found!"))
+    total = DB.count_documents(query)
     return (
         jsonify(
             {
                 "data": results,
-                "total": DB.count_documents(query),
-                "page": page,
-                "limit": limit,
+                "meta": {
+                    "page": page,
+                    "limit": limit,
+                    "total": total,
+                },
             }
         ),
         200,
@@ -80,12 +113,6 @@ def updateMultimeter(DB, updated_data, id):
     existing_multimeter = DB.find_one({"_id": id, "is_active": True})
     if not existing_multimeter:
         raise (Exception("Multimeter not found!"))
-    if "serial_no" in updated_data:
-        existing_multimeter = DB.find_one(
-            {"serial_no": updated_data["serial_no"], "is_active": True}
-        )
-        if existing_multimeter:
-            raise (Exception("Multimeter with this serial number already exists!"))
     photo = request.files.get("photo")
     if photo:
         updated_data["photo"] = upload_image(photo)
@@ -96,7 +123,20 @@ def updateMultimeter(DB, updated_data, id):
     updated_data_dict = updated_data.dict(exclude_unset=True)
     updated_data_dict["updated_at"] = datetime.now()
     DB.find_one_and_update({"_id": id}, {"$set": updated_data_dict})
-    return jsonify({"message": "Multimeter updated successfully"}), 200
+    data, total, page, limit = handlePagination(DB)
+    return (
+        jsonify(
+            {
+                "data": data,
+                "meta": {
+                    "page": page,
+                    "limit": limit,
+                    "total": total,
+                },
+            }
+        ),
+        200,
+    )
 
 
 """ Delete Multimeter """
@@ -110,4 +150,17 @@ def deleteMultimeter(DB, id):
     DB.find_one_and_update(
         {"_id": id}, {"$set": {"is_active": False, "updated_at": datetime.now()}}
     )
-    return jsonify({"message": "Multimeter deleted successfully"}), 200
+    data, total, page, limit = handlePagination(DB)
+    return (
+        jsonify(
+            {
+                "data": data,
+                "meta": {
+                    "page": page,
+                    "limit": limit,
+                    "total": total,
+                },
+            }
+        ),
+        200,
+    )
