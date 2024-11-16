@@ -52,7 +52,7 @@ def getRoutines(DB):
         start_date = dateutil.parser.parse(start_date)
         end_date = dateutil.parser.parse(end_date)
         if start_date > end_date:
-            return jsonify({"msg": "Invalid date range"}), 400
+            raise Exception("Invalid date range")
         query_filter["date"] = {"$gte": start_date, "$lte": end_date}
     if start_date and not end_date:
         raise Exception("End date is required")

@@ -121,6 +121,7 @@ def get_inspections(DB, worker_id):
         inspection["meter_id"] = str(inspection["meter_id"])
         inspection["worker_id"] = str(inspection["worker_id"])
         inspection["meter_details"]["_id"] = str(inspection["meter_details"]["_id"])
+        inspection["model"] = inspection["meter_details"]["model"]
         formatted.append(inspection)
 
     total = DB["Result"].count_documents(query)
