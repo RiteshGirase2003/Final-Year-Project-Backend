@@ -79,10 +79,11 @@ def create_inspection(DB, data):
 
 def get_inspections(DB, worker_id):
     query = {}
-    if worker_id:
-        query["worker_id"] = worker_id
     page = request.args.get("page", 1, type=int)
     limit = request.args.get("limit", 10, type=int)
+    my = request.args.get("my")
+    if my:
+        query["worker_id"] = worker_id
     for key in ["serial_no", "client"]:
         if request.args.get(key):
             query[key] = {"$regex": request.args.get(key), "$options": "i"}
