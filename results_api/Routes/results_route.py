@@ -6,7 +6,8 @@ from results_api.services.results_service import (
     create_inspection,
     get_inspections,
     delete_inspection,
-    getNumbers
+    getNumbers,
+    checkMeter,
 )
 
 results_bp = Blueprint("results_bp", __name__)
@@ -16,7 +17,7 @@ results_bp = Blueprint("results_bp", __name__)
 @jwt_required
 def inspections():
     worker_id = get_jwt_identity()["worker_id"]
-    return get_inspections(db,worker_id)
+    return get_inspections(db, worker_id)
 
 
 @results_bp.route("/inspect", methods=["POST"])
@@ -30,13 +31,19 @@ def inspect():
 
 @results_bp.route("/remove_inspection/<string:inspection_id>", methods=["DELETE"])
 @jwt_required
-@check_role('admin')
+@check_role("admin")
 def remove_inspection(inspection_id):
     return delete_inspection(db, inspection_id)
 
 
-@results_bp.route("/analytics/numbers",methods=["GET"])
+@results_bp.route("/analytics/numbers", methods=["GET"])
 @jwt_required
 def getAnalytics():
     worker_id = get_jwt_identity()["worker_id"]
-    return getNumbers(db,worker_id)
+    return getNumbers(db, worker_id)
+
+
+@results_bp.route("/check", methods=["POST"])
+@jwt_required
+def check():
+    return checkMeter(db)
