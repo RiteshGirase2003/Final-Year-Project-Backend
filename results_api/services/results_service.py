@@ -3,6 +3,7 @@ from results_api.dto.request.results_request_dto import ResultsRequestDTO
 from bson import ObjectId
 from datetime import datetime
 import dateutil.parser
+import random
 
 """ Handle Pagination """
 
@@ -49,6 +50,16 @@ def create_inspection(DB, data):
                         "date": datetime.now(),
                     }
                 },
+            )
+            data, total, page, limit = handlePagination(DB["Result"])
+            return (
+                jsonify(
+                    {
+                        "data": data,
+                        "meta": {"total": total, "page": page, "limit": limit},
+                    }
+                ),
+                201,
             )
     inspection = {
         "serial_no": data.serial_no,
@@ -165,3 +176,39 @@ def getNumbers(DB, worker_id):
         ),
         200,
     )
+
+
+def checkMeter(DB):
+    """model = tf.keras.models.load_model("path_to_saved_model_weights.h5")
+
+    image_file = request.files.get("image")
+    if not image_file:
+        raise Exception("Image is required")
+
+    image = Image.open(io.BytesIO(image_file.read()))
+
+    preprocess = transforms.Compose(
+        [
+            transforms.Resize((224, 224)),
+            transforms.ToTensor(),
+            transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
+        ]
+    )
+    image_tensor = preprocess(image).unsqueeze(0)
+
+    # Convert the image tensor to a numpy array
+    image_np = image_tensor.numpy()
+
+    # Make prediction
+    predictions = model.predict(image_np)
+    predicted_class = tf.argmax(predictions, axis=1).numpy()[0]
+
+    # Send the result back"""
+    image = request.files.get("image")
+    master = request.files.get("master")
+    if not image or not master:
+        raise Exception("Image is required")
+    predicted_class = random.randint(0, 1)
+    if predicted_class == 0:
+        return jsonify("Pass"), 200
+    return jsonify("Fail"), 200
