@@ -6,6 +6,7 @@ from multimeter_api.services.multimeter_service import (
     getMultimeters,
     updateMultimeter,
     deleteMultimeter,
+    getList
 )
 from middleware.auth import jwt_required, check_role
 
@@ -15,6 +16,12 @@ multimeter_bp = Blueprint("multimeter_bp", __name__)
 @multimeter_bp.route("/multimeters", methods=["GET"])
 def get_multimeters():
     data = getMultimeters(DB["Multimeter"])
+    return data
+
+
+@multimeter_bp.route("/meterList", methods=["GET"])
+def get_list():
+    data = getList(DB["Multimeter"])
     return data
 
 

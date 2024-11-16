@@ -164,3 +164,17 @@ def deleteMultimeter(DB, id):
         ),
         200,
     )
+
+
+""" Get List of Unique Models """
+
+
+def getList(DB):
+    unique_models = DB.find({"is_active": True}).distinct("model")
+    if not unique_models:
+        raise Exception("No models found!")
+    models_with_ids = [
+        {"id": str(model["_id"]), "model": model["model"]}
+        for model in DB.find({"is_active": True}, {"model": 1})
+    ]
+    return jsonify(models_with_ids), 200
