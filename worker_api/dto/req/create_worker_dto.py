@@ -21,6 +21,5 @@ class CreateWorkerDTO(BaseModel):
     photo: StrictStr
     created_at: Optional[datetime] = Field(default_factory=datetime.utcnow)
     updated_at: Optional[datetime] = Field(default_factory=datetime.utcnow)
-    is_active: Optional[bool] = Field(default=True)
     user_role: UserRole = Field(default=UserRole.worker)
     refresh_token: RefreshToken = Field(default=RefreshToken())

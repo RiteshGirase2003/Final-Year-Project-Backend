@@ -30,11 +30,9 @@ def handlePagination(DB):
 
 def create_inspection(DB, data):
     data = ResultsRequestDTO(**data)
-    meter = DB["Multimeter"].find_one(
-        {"_id": ObjectId(data.meter_id), "is_active": True}
-    )
+    meter = DB["Multimeter"].find_one({"_id": ObjectId(data.meter_id)})
     if not meter:
-        return jsonify({"message": "Meter not found"}), 404
+        raise Exception("Meter not found!")
     if data.serial_no and data.client:
         exists = DB["Result"].find_one(
             {"serial_no": data.serial_no, "client": data.client}
@@ -97,10 +95,14 @@ def get_inspections(DB, worker_id):
         query["date"] = {"$gte": start_date, "$lte": end_date}
     if request.args.get("result"):
         query["status"] = str(request.args.get("result"))
-
     pipeline = [
         {"$match": query},
-        {"$addFields": {"meter_id": {"$toObjectId": "$meter_id"}}},
+        {
+            "$addFields": {
+                "meter_id": {"$toObjectId": "$meter_id"},
+                "worker_id": {"$toObjectId": "$worker_id"},
+            }
+        },
         {
             "$lookup": {
                 "from": "Multimeter",
@@ -109,7 +111,29 @@ def get_inspections(DB, worker_id):
                 "as": "meter_details",
             }
         },
+        {
+            "$lookup": {
+                "from": "Worker",
+                "localField": "worker_id",
+                "foreignField": "_id",
+                "as": "worker_details",
+            }
+        },
         {"$unwind": "$meter_details"},
+        {"$unwind": "$worker_details"},
+        {
+            "$project": {
+                "serial_no": 1,
+                "meter_id": 1,
+                "worker_id": 1,
+                "status": 1,
+                "client": 1,
+                "date": 1,
+                "meter_details.model": 1,
+                "worker_details.name": 1,
+                "worker_details.reg_no": 1,
+            }
+        },
         {"$skip": (page - 1) * limit},
         {"$limit": limit},
     ]
@@ -120,8 +144,11 @@ def get_inspections(DB, worker_id):
         inspection["_id"] = str(inspection["_id"])
         inspection["meter_id"] = str(inspection["meter_id"])
         inspection["worker_id"] = str(inspection["worker_id"])
-        inspection["meter_details"]["_id"] = str(inspection["meter_details"]["_id"])
-        inspection["model"] = inspection["meter_details"]["model"]
+        inspection["meter_model"] = inspection["meter_details"]["model"]
+        inspection["worker_name"] = inspection["worker_details"]["name"]
+        inspection["worker_reg_no"] = inspection["worker_details"]["reg_no"]
+        del inspection["meter_details"]
+        del inspection["worker_details"]
         formatted.append(inspection)
 
     total = DB["Result"].count_documents(query)

@@ -12,13 +12,13 @@ from middleware.upload_photos import upload_image
 def handlePagination(DB):
     page = int(request.args.get("page", 1))
     limit = int(request.args.get("limit", 10))
-    total = DB.count_documents({"is_active": True})
+    total = DB.count_documents({})
     total_pages = (total + limit - 1) // limit
     if total_pages == 0:
         return [], 0, 0, 0
     if page > total_pages:
         page = total_pages
-    data = DB.find({"is_active": True}).skip((page - 1) * limit).limit(limit)
+    data = DB.find({}).skip((page - 1) * limit).limit(limit)
     res = []
     for meter in data:
         entry = MultimeterResDTO(
@@ -62,9 +62,7 @@ def createMultimeter(DB, multimeter):
 
 
 def getMultimeters(DB):
-    query = {
-        "is_active": True,
-    }
+    query = {}
     page = request.args.get("page", 1, type=int)
     limit = request.args.get("limit", 10, type=int)
     model = request.args.get("model")
@@ -110,7 +108,7 @@ def getMultimeters(DB):
 
 def updateMultimeter(DB, updated_data, id):
     id = ObjectId(id)
-    existing_multimeter = DB.find_one({"_id": id, "is_active": True})
+    existing_multimeter = DB.find_one({"_id": id})
     if not existing_multimeter:
         raise (Exception("Multimeter not found!"))
     photo = request.files.get("photo")
@@ -144,12 +142,10 @@ def updateMultimeter(DB, updated_data, id):
 
 def deleteMultimeter(DB, id):
     id = ObjectId(id)
-    existing_multimeter = DB.find_one({"_id": id, "is_active": True})
+    existing_multimeter = DB.find_one({"_id": id})
     if not existing_multimeter:
         raise (Exception("Multimeter not found!"))
-    DB.find_one_and_update(
-        {"_id": id}, {"$set": {"is_active": False, "updated_at": datetime.now()}}
-    )
+    DB.delete_one({"_id": id})
     data, total, page, limit = handlePagination(DB)
     return (
         jsonify(
@@ -170,11 +166,11 @@ def deleteMultimeter(DB, id):
 
 
 def getList(DB):
-    unique_models = DB.find({"is_active": True}).distinct("model")
+    unique_models = DB.find({}).distinct("model")
     if not unique_models:
         raise Exception("No models found!")
     models_with_ids = []
-    for model in DB.find({"is_active": True}, {"model": 1, "photo": 1}):
+    for model in DB.find({}, {"model": 1, "photo": 1}):
         models_with_ids.append(
             {"id": str(model["_id"]), "model": model["model"], "image": model["photo"]}
         )
