@@ -8,6 +8,8 @@ from typing import Optional
 class Routine(BaseModel):
     id: str = Field(default_factory=lambda: str(ObjectId()), alias="_id")
     worker_id: str
+    worker_name: str
+    worker_reg_no: str
     date: datetime
     start_time: datetime
     end_time: Optional[datetime] = None

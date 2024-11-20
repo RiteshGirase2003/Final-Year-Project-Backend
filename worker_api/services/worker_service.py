@@ -17,7 +17,7 @@ refresh_token_expires = int(os.getenv("REFRESH_TOKEN_EXPIRES_IN"))
 
 
 def loginUser(DB, data):
-    user = DB.find_one({"reg_no": data["reg_no"], "is_active": True})
+    user = DB.find_one({"reg_no": data["reg_no"]})
     if not user:
         raise Exception("Registration number does not exist!")
     if not bcrypt.checkpw(
@@ -64,13 +64,13 @@ def loginUser(DB, data):
 def handlePagination(DB):
     page = int(request.args.get("page", 1))
     limit = int(request.args.get("limit", 10))
-    total = DB.count_documents({"is_active": True})
+    total = DB.count_documents({})
     total_pages = (total + limit - 1) // limit
     if total_pages == 0:
         return [], 0, 0, 0
     if page > total_pages:
         page = total_pages
-    data = DB.find({"is_active": True}).skip((page - 1) * limit).limit(limit)
+    data = DB.find({}).skip((page - 1) * limit).limit(limit)
     res = []
     for worker in data:
         entry = WorkerResDTO(
@@ -90,7 +90,7 @@ def createWorker(DB, worker):
         raise Exception("No photo found!")
     worker["photo"] = upload_image(worker_photo)
     worker = CreateWorkerDTO(**worker)
-    existing_worker = DB.find_one({"reg_no": worker.reg_no, "is_active": True})
+    existing_worker = DB.find_one({"reg_no": worker.reg_no})
     if existing_worker:
         raise Exception("Worker with this registration number already exists!")
     hashed_password = bcrypt.hashpw(worker.password.encode("utf-8"), bcrypt.gensalt())
@@ -137,9 +137,7 @@ def loggedInWorker(DB):
 
     worker_id = ObjectId(decoded_token["sub"]["worker_id"])
     user_role = decoded_token["sub"]["role"]
-    worker = DB.find_one(
-        {"_id": worker_id, "is_active": True, "user_role": str(user_role)}
-    )
+    worker = DB.find_one({"_id": worker_id, "user_role": str(user_role)})
     if not worker:
         raise Exception("Worker not found!")
     worker["_id"] = str(worker["_id"])
@@ -160,7 +158,7 @@ def getWorkers(DB):
     sort_by = request.args.get("sort_by")
     sort_order = request.args.get("sort_order", "asc")
 
-    match_stage = {"is_active": True}
+    match_stage = {}
     if reg_no:
         match_stage["reg_no"] = reg_no
     if name:
@@ -178,7 +176,7 @@ def getWorkers(DB):
     pipeline.append({"$limit": limit})
     workers = list(DB.aggregate(pipeline))
     results = []
-    total = DB.count_documents({"is_active": True})
+    total = DB.count_documents({})
     if workers:
         for worker in workers:
             worker_data = WorkerResDTO(
@@ -218,7 +216,7 @@ def updateWorker(DB, id):
     if photo:
         updated_data["photo"] = upload_image(request.files.get("photo"))
     id = ObjectId(id)
-    existing_worker = DB.find_one({"_id": id, "is_active": True})
+    existing_worker = DB.find_one({"_id": id})
     if not existing_worker:
         raise (Exception("Worker not found!"))
     updated_worker_data = UpdateWorkerDTO(**updated_data)
@@ -246,12 +244,10 @@ def updateWorker(DB, id):
 
 def deleteWorker(DB, id):
     id = ObjectId(id)
-    existing_worker = DB.find_one({"_id": id, "is_active": True})
+    existing_worker = DB.find_one({"_id": id})
     if not existing_worker:
         raise (Exception("Worker not found!"))
-    DB.find_one_and_update(
-        {"_id": id}, {"$set": {"is_active": False, "updated_at": datetime.now()}}
-    )
+    DB.delete_one({"_id": id})
     data, total, page, limit = handlePagination(DB)
     return (
         jsonify(
@@ -294,9 +290,7 @@ def refreshAccessToken(DB):
 
     worker_id = ObjectId(decoded_token["sub"]["worker_id"])
     user_role = decoded_token["sub"]["role"]
-    worker = DB.find_one(
-        {"_id": worker_id, "is_active": True, "user_role": str(user_role)}
-    )
+    worker = DB.find_one({"_id": worker_id, "user_role": str(user_role)})
     if not worker:
         raise Exception("Worker not found!")
 
@@ -304,7 +298,6 @@ def refreshAccessToken(DB):
         raise Exception("Invalid worker data: missing refresh token expiration")
 
     if datetime.now() > worker["refresh_token"]["expires_at"]:
-        print("Expiration")
         raise Exception("Refresh token has expired!")
 
     access_token = create_access_token(
@@ -355,7 +348,6 @@ def logoutUser(DB):
     worker = DB.find_one(
         {
             "_id": worker_id,
-            "is_active": True,
             "user_role": worker_role,
         }
     )

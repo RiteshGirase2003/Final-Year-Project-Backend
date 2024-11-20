@@ -59,15 +59,50 @@ def getRoutines(DB):
     if end_date and not start_date:
         raise Exception("Start date is required")
 
-    routines = list(
-        DB["Routine"].find(query_filter).skip((page - 1) * limit).limit(limit)
-    )
+    pipeline = [
+        {"$match": query_filter},
+        {
+            "$addFields": {
+                "worker_id": {"$toObjectId": "$worker_id"},
+                "total_hours": {
+                    "$divide": [{"$subtract": ["$end_time", "$start_time"]}, 3600000]
+                },  # Convert milliseconds to hours
+            }
+        },
+        {
+            "$lookup": {
+                "from": "Worker",
+                "localField": "worker_id",
+                "foreignField": "_id",
+                "as": "worker",
+            }
+        },
+        {"$unwind": "$worker"},
+        {"$sort": {"date": 1}},
+        {"$skip": (page - 1) * limit},
+        {"$limit": limit},
+        {
+            "$project": {
+                "_id": 1,
+                "worker_id": 1,
+                "total_hours": 1,
+                "start_time": 1,
+                "end_time": 1,
+                "date": 1,
+                "worker.name": 1,
+                "worker.reg_no": 1,
+            }
+        },
+    ]
 
+    routines = list(DB["Routine"].aggregate(pipeline))
     formatted_routines = []
 
     for routine in routines:
         routine["_id"] = str(routine["_id"])
         routine["worker_id"] = str(routine["worker_id"])
+        routine["worker_name"] = routine["worker"]["name"]
+        routine["worker_reg_no"] = routine["worker"]["reg_no"]
         routine = Routine(**routine)
         routine_dict = routine.dict(by_alias=True)
         routine_dict["date"] = routine_dict["date"].strftime("%d-%m-%Y")
