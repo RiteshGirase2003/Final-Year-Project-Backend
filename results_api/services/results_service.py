@@ -4,6 +4,9 @@ from bson import ObjectId
 from datetime import datetime
 import dateutil.parser
 import random
+import pandas as pd
+from io import BytesIO
+from flask import send_file
 
 """ Handle Pagination """
 
@@ -241,3 +244,71 @@ def checkMeter(DB):
     if predicted_class == 0:
         return jsonify("Pass"), 200
     return jsonify("Fail"), 200
+
+
+def export_today_results(DB):
+    today = datetime.now().date()
+    query = {"date": {"$gte": datetime(today.year, today.month, today.day)}}
+
+    pipeline = [
+        {"$match": query},
+        {
+            "$addFields": {
+                "meter_id": {"$toObjectId": "$meter_id"},
+                "worker_id": {"$toObjectId": "$worker_id"},
+            }
+        },
+        {
+            "$lookup": {
+                "from": "Multimeter",
+                "localField": "meter_id",
+                "foreignField": "_id",
+                "as": "meter_details",
+            }
+        },
+        {
+            "$lookup": {
+                "from": "Worker",
+                "localField": "worker_id",
+                "foreignField": "_id",
+                "as": "worker_details",
+            }
+        },
+        {"$unwind": "$meter_details"},
+        {"$unwind": "$worker_details"},
+        {
+            "$project": {
+                "serial_no": 1,
+                "status": 1,
+                "client": 1,
+                "date": 1,
+                "meter_details.model": 1,
+                "worker_details.name": 1,
+                "worker_details.reg_no": 1,
+            }
+        },
+    ]
+
+    inspections = list(DB["Result"].aggregate(pipeline))
+    formatted = []
+    for inspection in inspections:
+        inspect = {}
+        inspect["Inspection ID"] = str(inspection["_id"])
+        inspect["Serial No"] = inspection["serial_no"]
+        inspect["Client"] = inspection["client"]
+        inspect["Date"] = datetime.strftime(inspection["date"], "%d-%m-%y")
+        inspect["Time"] = datetime.strftime(inspection["date"], "%I:%M %p")
+        inspect["Model"] = inspection["meter_details"]["model"]
+        inspect["Operator Name"] = inspection["worker_details"]["name"]
+        inspect["Operator ID"] = inspection["worker_details"]["reg_no"]
+        inspect["Result"] = inspection["status"]
+        del inspection["meter_details"]
+        del inspection["worker_details"]
+        formatted.append(inspect)
+    df = pd.DataFrame(formatted)
+    output = BytesIO()
+    with pd.ExcelWriter(output, engine="xlsxwriter") as writer:
+        df.to_excel(writer, index=False, sheet_name="Today Results")
+    output.seek(0)
+
+    return send_file(output, download_name="today_results.xlsx", as_attachment=True)

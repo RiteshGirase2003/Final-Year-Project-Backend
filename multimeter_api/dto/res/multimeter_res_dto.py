@@ -8,7 +8,6 @@ class MultimeterResDTO(BaseModel):
     model: StrictStr
     description: StrictStr
     photo: StrictStr
-    screen_photos: List[StrictStr]
     created_at: datetime
     updated_at: datetime
     created_by: StrictStr

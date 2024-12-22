@@ -1,9 +1,12 @@
 from pydantic import BaseModel, constr
+from typing import Optional
 from enum import Enum
+
 
 class StatusEnum(str, Enum):
     pass_ = "pass"
     fail = "fail"
+
 
 class ResultsRequestDTO(BaseModel):
     serial_no: constr(strict=True, min_length=1)

@@ -8,6 +8,7 @@ from results_api.services.results_service import (
     delete_inspection,
     getNumbers,
     checkMeter,
+    export_today_results,
 )
 
 results_bp = Blueprint("results_bp", __name__)
@@ -47,3 +48,9 @@ def getAnalytics():
 @jwt_required
 def check():
     return checkMeter(db)
+
+
+@results_bp.route("/excel", methods=["GET"])
+@jwt_required
+def download_excel():
+    return export_today_results(db)
