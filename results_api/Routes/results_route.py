@@ -36,7 +36,8 @@ def inspect():
 @jwt_required
 @check_role("admin")
 def remove_inspection(inspection_id):
-    return delete_inspection(db, inspection_id)
+    worker_id = get_jwt_identity()["worker_id"]
+    return delete_inspection(db, inspection_id,worker_id)
 
 
 @results_bp.route("/analytics/numbers", methods=["GET"])
@@ -65,8 +66,8 @@ def emailSender():
     port = getenv("SMTP_PORT")
     sender_email = getenv("SMTP_USER")
     sender_pass = getenv("SMTP_PASS")
-    receipant_emails = request.args.get("email")
+    receipant_emails = request.json["receipant_emails"]
     print(receipant_emails)
     return send_email(
-        email_service_url, port, sender_email, sender_pass, receipant_emails
+        email_service_url, port, sender_email, sender_pass, receipant_emails, db
     )

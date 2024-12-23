@@ -9,7 +9,9 @@ from io import BytesIO
 from flask import send_file
 import smtplib
 from email.mime.multipart import MIMEMultipart
+from email.mime.base import MIMEBase
 from email.mime.text import MIMEText
+from email import encoders
 
 """ Handle Pagination """
 
@@ -81,7 +83,7 @@ def create_inspection(DB, data):
     )
 
 
-def get_inspections(DB, worker_id):
+def fetch_inspections(DB, worker_id):
     query = {}
     page = request.args.get("page", 1, type=int)
     limit = request.args.get("limit", 10, type=int)
@@ -158,22 +160,24 @@ def get_inspections(DB, worker_id):
         formatted.append(inspection)
 
     total = DB["Result"].count_documents(query)
+    return formatted, total, page, limit
 
+
+def get_inspections(DB, worker_id):
+    data, total, page, limit = fetch_inspections(DB, worker_id)
     return (
-        jsonify(
-            {"data": formatted, "meta": {"total": total, "page": page, "limit": limit}}
-        ),
+        jsonify({"data": data, "meta": {"total": total, "page": page, "limit": limit}}),
         200,
     )
 
 
-def delete_inspection(DB, inspection_id):
+def delete_inspection(DB, inspection_id, worker_id):
     inspection = DB["Result"].find_one({"_id": ObjectId(inspection_id)})
     if not inspection:
         raise Exception("Inspection Not Found!")
 
     DB["Result"].delete_one({"_id": ObjectId(inspection_id)})
-    data, total, page, limit = handlePagination(DB["Result"])
+    data, total, page, limit = fetch_inspections(DB, worker_id)
     return (
         jsonify({"data": data, "meta": {"total": total, "page": page, "limit": limit}}),
         200,
@@ -201,12 +205,20 @@ def getNumbers(DB, worker_id):
     total_meters = DB["Result"].count_documents(query)
     correct_meters = DB["Result"].count_documents({**query, "status": "pass"})
     incorrect_meters = DB["Result"].count_documents({**query, "status": "fail"})
+    today = datetime.now().date()
+    today_query = {"date": {"$gte": datetime(today.year, today.month, today.day)}}
+    today_total = DB["Result"].count_documents(today_query)
+    today_correct = DB["Result"].count_documents({**today_query, "status": "pass"})
+    today_incorrect = DB["Result"].count_documents({**today_query, "status": "fail"})
     return (
         jsonify(
             {
                 "total": total_meters,
                 "correct": correct_meters,
                 "incorrect": incorrect_meters,
+                "today_total": today_total,
+                "today_correct": today_correct,
+                "today_incorrect": today_incorrect,
             }
         ),
         200,
@@ -249,10 +261,9 @@ def checkMeter(DB):
     return jsonify("Fail"), 200
 
 
-def export_today_results(DB):
+def generate_today_results(DB):
     today = datetime.now().date()
     query = {"date": {"$gte": datetime(today.year, today.month, today.day)}}
-
     pipeline = [
         {"$match": query},
         {
@@ -307,32 +318,82 @@ def export_today_results(DB):
         del inspection["meter_details"]
         del inspection["worker_details"]
         formatted.append(inspect)
-    df = pd.DataFrame(formatted)
+    return pd.DataFrame(formatted)
+
+
+def export_today_results(DB):
+    df = generate_today_results(DB)
     output = BytesIO()
     with pd.ExcelWriter(output, engine="xlsxwriter") as writer:
-        df.to_excel(writer, index=False, sheet_name=f"{today}_results")
+        df.to_excel(writer, index=False, sheet_name=f"{datetime.now().date()}_results")
     output.seek(0)
+    return send_file(
+        output,
+        download_name=f"{datetime.now().date()}_results.xlsx",
+        as_attachment=True,
+    )
 
-    return send_file(output, download_name=f"{today}_results.xlsx", as_attachment=True)
 
-
-def send_email(smtp_server, port, sender_email, sender_password, recipient_email):
+def send_email(smtp_server, port, sender_email, sender_password, recipient_emails, DB):
     try:
-        # Set up the server
-        server = smtplib.SMTP(smtp_server, port)
-        server.starttls()
-        server.login(sender_email, sender_password)
+        # Generate DataFrame
+        df = generate_today_results(DB)
 
-        # Create the email
+        # Create Excel in memory
+        excel_file = BytesIO()
+        with pd.ExcelWriter(excel_file, engine="xlsxwriter") as writer:
+            df.to_excel(writer, index=False, sheet_name="Today_Results")
+        excel_file.seek(0)
+
+        # Setup email
         msg = MIMEMultipart()
+        today = datetime.now().date()
         msg["From"] = sender_email
-        msg["To"] = recipient_email
-        msg["Subject"] = "Sample Testing"
-        msg.attach(MIMEText("Testing Email", "plain"))
 
-        # Send the email
-        server.send_message(msg)
-        server.quit()
-        return jsonify({"message": "Email sent successfully"}), 200
+        # Handle multiple recipients
+        if isinstance(recipient_emails, list):
+            msg["To"] = ", ".join(recipient_emails)
+        else:
+            msg["To"] = recipient_emails
+
+        msg["Subject"] = f"Inspection Results of {today}"
+        msg.attach(
+            MIMEText("The Inspection Results of the day are attached below", "plain")
+        )
+
+        # Attach Excel file
+        attachment = MIMEBase("application", "octet-stream")
+        attachment.set_payload(excel_file.read())
+        encoders.encode_base64(attachment)
+        attachment.add_header(
+            "Content-Disposition",
+            f"attachment; filename=inspection_results_{today}.xlsx",
+        )
+        msg.attach(attachment)
+
+        # Send email
+        with smtplib.SMTP(smtp_server, port) as server:
+            server.starttls()
+            server.login(sender_email, sender_password)
+
+            # Send to each recipient
+            failed_recipients = []
+            for recipient in (
+                recipient_emails
+                if isinstance(recipient_emails, list)
+                else [recipient_emails]
+            ):
+                try:
+                    server.sendmail(sender_email, recipient, msg.as_string())
+                except Exception as e:
+                    failed_recipients.append({"email": recipient, "error": str(e)})
+
+        if failed_recipients:
+            raise Exception(
+                f"Failed to send email to the following recipients: {failed_recipients}"
+            )
+
+        return jsonify({"message": "Email sent successfully to all recipients"}), 200
+
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        raise Exception(f"Failed to send email: {str(e)}")
