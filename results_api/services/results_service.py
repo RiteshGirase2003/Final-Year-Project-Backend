@@ -308,7 +308,7 @@ def export_today_results(DB):
     df = pd.DataFrame(formatted)
     output = BytesIO()
     with pd.ExcelWriter(output, engine="xlsxwriter") as writer:
-        df.to_excel(writer, index=False, sheet_name="Today Results")
+        df.to_excel(writer, index=False, sheet_name=f"{today}_results")
     output.seek(0)
 
-    return send_file(output, download_name="today_results.xlsx", as_attachment=True)
+    return send_file(output, download_name=f"{today}_results.xlsx", as_attachment=True)
