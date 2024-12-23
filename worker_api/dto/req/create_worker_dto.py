@@ -23,3 +23,4 @@ class CreateWorkerDTO(BaseModel):
     updated_at: Optional[datetime] = Field(default_factory=datetime.utcnow)
     user_role: UserRole = Field(default=UserRole.worker)
     refresh_token: RefreshToken = Field(default=RefreshToken())
+    email: Optional[StrictStr] = Field(default="")

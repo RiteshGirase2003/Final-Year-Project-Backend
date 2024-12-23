@@ -15,3 +15,4 @@ class UpdateWorkerDTO(BaseModel):
     photo: Optional[StrictStr]
     updated_at: Optional[datetime] = Field(default_factory=datetime.utcnow)
     user_role: UserRole = Field(default=UserRole.worker)
+    email: Optional[StrictStr] = Field(default="")

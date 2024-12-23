@@ -7,6 +7,9 @@ import random
 import pandas as pd
 from io import BytesIO
 from flask import send_file
+import smtplib
+from email.mime.multipart import MIMEMultipart
+from email.mime.text import MIMEText
 
 """ Handle Pagination """
 
@@ -311,3 +314,25 @@ def export_today_results(DB):
     output.seek(0)
 
     return send_file(output, download_name=f"{today}_results.xlsx", as_attachment=True)
+
+
+def send_email(smtp_server, port, sender_email, sender_password, recipient_email):
+    try:
+        # Set up the server
+        server = smtplib.SMTP(smtp_server, port)
+        server.starttls()
+        server.login(sender_email, sender_password)
+
+        # Create the email
+        msg = MIMEMultipart()
+        msg["From"] = sender_email
+        msg["To"] = recipient_email
+        msg["Subject"] = "Sample Testing"
+        msg.attach(MIMEText("Testing Email", "plain"))
+
+        # Send the email
+        server.send_message(msg)
+        server.quit()
+        return jsonify({"message": "Email sent successfully"}), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500

@@ -154,11 +154,14 @@ def getWorkers(DB):
     page = request.args.get("page", 1, type=int)
     limit = request.args.get("limit", 10, type=int)
     reg_no = request.args.get("reg_no")
+    user_role = request.args.get("user_role")
     name = request.args.get("name")
     sort_by = request.args.get("sort_by")
     sort_order = request.args.get("sort_order", "asc")
 
     match_stage = {}
+    if user_role:
+        match_stage["user_role"] = user_role
     if reg_no:
         match_stage["reg_no"] = reg_no
     if name:

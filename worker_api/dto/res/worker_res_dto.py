@@ -15,3 +15,4 @@ class WorkerResDTO(BaseModel):
     created_at: Optional[datetime]
     updated_at: Optional[datetime]
     user_role: UserRole
+    email: StrictStr
