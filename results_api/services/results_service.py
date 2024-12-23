@@ -293,7 +293,6 @@ def export_today_results(DB):
     formatted = []
     for inspection in inspections:
         inspect = {}
-        inspect["Inspection ID"] = str(inspection["_id"])
         inspect["Serial No"] = inspection["serial_no"]
         inspect["Client"] = inspection["client"]
         inspect["Date"] = datetime.strftime(inspection["date"], "%d-%m-%y")
