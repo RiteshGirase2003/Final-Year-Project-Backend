@@ -7,5 +7,4 @@ class UpdateMultimeterDTO(BaseModel):
     model: Optional[StrictStr]
     description: Optional[StrictStr]
     photo: Optional[StrictStr]
-    screen_photos: Optional[List[StrictStr]]
     updated_at: Optional[datetime] = None

@@ -154,11 +154,14 @@ def getWorkers(DB):
     page = request.args.get("page", 1, type=int)
     limit = request.args.get("limit", 10, type=int)
     reg_no = request.args.get("reg_no")
+    user_role = request.args.get("user_role")
     name = request.args.get("name")
     sort_by = request.args.get("sort_by")
     sort_order = request.args.get("sort_order", "asc")
 
     match_stage = {}
+    if user_role:
+        match_stage["user_role"] = user_role
     if reg_no:
         match_stage["reg_no"] = reg_no
     if name:
@@ -176,15 +179,13 @@ def getWorkers(DB):
     pipeline.append({"$limit": limit})
     workers = list(DB.aggregate(pipeline))
     results = []
-    total = DB.count_documents({})
+    total = DB.count_documents(match_stage)
     if workers:
         for worker in workers:
             worker_data = WorkerResDTO(
                 id=str(worker["_id"]), **{k: v for k, v in worker.items() if k != "_id"}
             )
             results.append(worker_data.dict())
-    if len(results) == 0:
-        raise (Exception("No worker found!"))
     return (
         jsonify(
             {
@@ -204,7 +205,6 @@ def getWorkers(DB):
 
 
 def updateWorker(DB, id):
-
     updated_data = request.form.to_dict()
     photo = request.files.get("photo")
     if not updated_data and not photo:
@@ -219,6 +219,9 @@ def updateWorker(DB, id):
     existing_worker = DB.find_one({"_id": id})
     if not existing_worker:
         raise (Exception("Worker not found!"))
+    if "user_role" in updated_data and updated_data["user_role"] == "admin":
+        if "email" not in updated_data or existing_worker["email"] == "":
+            raise Exception("Update the email first")
     updated_worker_data = UpdateWorkerDTO(**updated_data)
     updated_data_dict = updated_worker_data.dict(exclude_unset=True)
     updated_data_dict["updated_at"] = datetime.now()

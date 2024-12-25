@@ -33,13 +33,10 @@ def handlePagination(DB):
 
 def createMultimeter(DB, multimeter):
     cover_image = request.files.get("photo")
-    screen_photos = request.files.getlist("screen_photos")
-    if not cover_image or not screen_photos:
+    if not cover_image:
         raise (Exception("Please provide cover image and screen photos!"))
     cover_image = upload_image(cover_image)
-    screen_photos = [upload_image(photo) for photo in screen_photos]
     multimeter["photo"] = cover_image
-    multimeter["screen_photos"] = screen_photos
     multimeter = CreateMultimeterDTO(**multimeter)
     DB.insert_one(multimeter.dict())
     data, total, page, limit = handlePagination(DB)
@@ -85,8 +82,6 @@ def getMultimeters(DB):
                 **{k: v for k, v in multimeter.items() if k != "_id"}
             )
             results.append(multimeter_data.dict())
-    if len(results) == 0:
-        raise (Exception("No multimeter found!"))
     total = DB.count_documents(query)
     return (
         jsonify(
@@ -114,9 +109,6 @@ def updateMultimeter(DB, updated_data, id):
     photo = request.files.get("photo")
     if photo:
         updated_data["photo"] = upload_image(photo)
-    screen_photos = request.files.getlist("screen_photos")
-    if screen_photos:
-        updated_data["screen_photos"] = [upload_image(photo) for photo in screen_photos]
     updated_data = UpdateMultimeterDTO(**updated_data)
     updated_data_dict = updated_data.dict(exclude_unset=True)
     updated_data_dict["updated_at"] = datetime.now()

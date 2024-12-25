@@ -2,12 +2,15 @@ from flask import Blueprint, request
 from db_connect import DB as db
 from middleware.auth import jwt_required, check_role
 from flask_jwt_extended import get_jwt_identity
+from os import getenv
 from results_api.services.results_service import (
     create_inspection,
     get_inspections,
     delete_inspection,
     getNumbers,
     checkMeter,
+    export_today_results,
+    send_email,
 )
 
 results_bp = Blueprint("results_bp", __name__)
@@ -33,7 +36,8 @@ def inspect():
 @jwt_required
 @check_role("admin")
 def remove_inspection(inspection_id):
-    return delete_inspection(db, inspection_id)
+    worker_id = get_jwt_identity()["worker_id"]
+    return delete_inspection(db, inspection_id,worker_id)
 
 
 @results_bp.route("/analytics/numbers", methods=["GET"])
@@ -47,3 +51,23 @@ def getAnalytics():
 @jwt_required
 def check():
     return checkMeter(db)
+
+
+@results_bp.route("/excel", methods=["GET"])
+@jwt_required
+def download_excel():
+    return export_today_results(db)
+
+
+@results_bp.route("/send_email", methods=["POST"])
+@jwt_required
+def emailSender():
+    email_service_url = getenv("SMTP_HOST")
+    port = getenv("SMTP_PORT")
+    sender_email = getenv("SMTP_USER")
+    sender_pass = getenv("SMTP_PASS")
+    receipant_emails = request.json["receipant_emails"]
+    print(receipant_emails)
+    return send_email(
+        email_service_url, port, sender_email, sender_pass, receipant_emails, db
+    )
